@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lecture Hall — Seatmap</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #0c1b30;
+            --bg-panel: #132a4a;
+            --bg-panel-alt: #1a3660;
+            --chalk: #F5F1E6;
+            --chalk-dim: #9FB0C9;
+            --brass: #C9A227;
+            --brass-soft: #E4C55C;
+            --wood: #C79A5C;
+            --wood-dark: #93683A;
+            --empty: #1e3a63;
+            --empty-border: #2c507e;
+            --present: #4C9A6A;
+            --absent: #C1453A;
+            --radius: 9px;
+            --shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: radial-gradient(ellipse at top, #16305a 0%, var(--bg-deep) 62%);
+            color: var(--chalk);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            padding: 28px 18px 60px;
+        }
+
+        h1,
+        h2 {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .mono-code {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .wrap {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 22px;
+        }
+
+        header h1 {
+            font-size: 1.7rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            margin: 0 0 4px;
+            color: var(--brass-soft);
+        }
+
+        header p {
+            margin: 0;
+            color: var(--chalk-dim);
+            font-size: 0.92rem;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            padding: 12px 14px;
+            background: var(--bg-panel);
+            border: 1px solid var(--empty-border);
+            border-radius: 12px;
+        }
+
+        .controls input[type=text] {
+            background: var(--bg-deep);
+            border: 1px solid var(--empty-border);
+            color: var(--chalk);
+            padding: 8px 12px;
+            border-radius: 7px;
+            font-size: 0.88rem;
+            font-family: 'Inter', sans-serif;
+            min-width: 180px;
+        }
+
+        .controls input[type=text]:focus {
+            outline: 2px solid var(--brass);
+            outline-offset: 1px;
+        }
+
+        .btn {
+            background: var(--bg-panel-alt);
+            color: var(--chalk);
+            border: 1px solid var(--empty-border);
+            padding: 8px 14px;
+            border-radius: 7px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            transition: transform .08s ease, background .15s ease;
+        }
+
+        .btn:hover {
+            background: #254a7d;
+        }
+
+        .btn:active {
+            transform: scale(0.97);
+        }
+
+        .btn.active {
+            background: var(--brass);
+            color: var(--bg-deep);
+            border-color: var(--brass);
+            font-weight: 600;
+        }
+
+        .btn.danger:hover {
+            background: var(--absent);
+            border-color: var(--absent);
+        }
+
+        .btn:focus-visible {
+            outline: 2px solid var(--brass-soft);
+            outline-offset: 2px;
+        }
+
+        .stats {
+            display: flex;
+            gap: 16px;
+            font-size: 0.82rem;
+            color: var(--chalk-dim);
+            margin-left: 6px;
+        }
+
+        .stats b {
+            color: var(--brass-soft);
+        }
+
+        /* Column tabs */
+        .tabs {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+            margin-bottom: 18px;
+        }
+
+        .tab {
+            background: var(--bg-panel);
+            color: var(--chalk-dim);
+            border: 1px solid var(--empty-border);
+            padding: 10px 22px;
+            border-radius: 10px 10px 0 0;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border-bottom: none;
+            transition: all .15s ease;
+            position: relative;
+        }
+
+        .tab .range {
+            display: block;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
+            font-size: 0.68rem;
+            color: var(--chalk-dim);
+            margin-top: 2px;
+        }
+
+        .tab.active {
+            background: var(--bg-panel-alt);
+            color: var(--brass-soft);
+            border-color: var(--brass);
+            position: relative;
+            top: 1px;
+        }
+
+        .tab.active .range {
+            color: var(--brass-soft);
+        }
+
+        .tab:focus-visible {
+            outline: 2px solid var(--brass-soft);
+        }
+
+        .tab.has-match:not(.active) {
+            border-color: var(--brass-soft);
+            color: var(--brass-soft);
+        }
+
+        .tab .badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            min-width: 19px;
+            height: 19px;
+            padding: 0 4px;
+            border-radius: 999px;
+            background: var(--brass-soft);
+            color: var(--bg-deep);
+            font-size: 0.68rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            box-shadow: 0 0 0 2px var(--bg-deep);
+            animation: pulse 1.3s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.12);
+            }
+        }
+
+        .search-banner {
+            display: none;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--bg-deep);
+            background: var(--brass-soft);
+            padding: 8px 14px;
+            border-radius: 8px;
+            margin: -10px auto 16px;
+            max-width: 520px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .search-banner:hover {
+            background: var(--brass);
+        }
+
+        .hall {
+            background: var(--bg-panel-alt);
+            border: 1px solid var(--empty-border);
+            border-radius: 0 12px 12px 12px;
+            padding: 22px 20px 30px;
+            box-shadow: var(--shadow);
+        }
+
+        .podium {
+            text-align: center;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            letter-spacing: 0.18em;
+            font-size: 0.78rem;
+            color: var(--bg-deep);
+            background: linear-gradient(180deg, var(--brass-soft), var(--brass));
+            padding: 9px;
+            border-radius: 8px;
+            margin-bottom: 6px;
+        }
+
+        .podium-note {
+            text-align: center;
+            font-size: 0.7rem;
+            color: var(--chalk-dim);
+            margin-bottom: 22px;
+        }
+
+        .hall.mirrored #podiumBlock {
+            margin-top: 18px;
+        }
+
+        .hall.mirrored .podium-note {
+            margin-bottom: 0;
+        }
+
+        .hall.mirrored #grid {
+            margin-bottom: 10px;
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .row-label {
+            width: 34px;
+            flex-shrink: 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            color: var(--brass-soft);
+            font-size: 0.85rem;
+            text-align: center;
+        }
+
+        .seat-group {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+            flex: 1;
+        }
+
+        .seat {
+            width: 58px;
+            height: 46px;
+            flex-shrink: 0;
+            border-radius: 6px 6px 3px 3px;
+            background: var(--empty);
+            border: 1px solid var(--empty-border);
+            border-top: 3px solid var(--empty-border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+            padding: 2px;
+        }
+
+        .seat:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
+        }
+
+        .seat.filled {
+            background: linear-gradient(180deg, var(--wood), var(--wood-dark));
+            border-color: var(--wood-dark);
+            border-top-color: var(--brass-soft);
+        }
+
+        .seat .seat-num {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.62rem;
+            color: var(--chalk-dim);
+            line-height: 1;
+        }
+
+        .seat.filled .seat-num {
+            color: rgba(12, 27, 48, 0.65);
+        }
+
+        .seat .seat-name {
+            font-size: 0.62rem;
+            font-weight: 600;
+            color: var(--chalk);
+            line-height: 1.15;
+            text-align: center;
+            max-width: 54px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-top: 1px;
+        }
+
+        .seat.filled .seat-name {
+            color: #1b2f22;
+        }
+
+        .seat.dim {
+            opacity: 0.22;
+        }
+
+        .seat.spotlight {
+            animation: glow 1.1s ease-in-out infinite alternate;
+            border-color: var(--brass-soft);
+            z-index: 2;
+        }
+
+        @keyframes glow {
+            from {
+                box-shadow: 0 0 0 0 rgba(228, 197, 94, 0.6);
+            }
+
+            to {
+                box-shadow: 0 0 0 8px rgba(228, 197, 94, 0);
+            }
+        }
+
+        .seat.present {
+            box-shadow: inset 0 0 0 2px var(--present);
+        }
+
+        .seat.absent {
+            box-shadow: inset 0 0 0 2px var(--absent);
+            opacity: 0.55;
+        }
+
+        .seat input {
+            width: 50px;
+            background: var(--bg-deep);
+            border: 1px solid var(--brass);
+            border-radius: 4px;
+            color: var(--chalk);
+            font-size: 0.62rem;
+            text-align: center;
+            font-family: 'Inter', sans-serif;
+            padding: 2px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 18px;
+            justify-content: center;
+            margin-top: 22px;
+            flex-wrap: wrap;
+            font-size: 0.75rem;
+            color: var(--chalk-dim);
+        }
+
+        .legend span {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .swatch {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            display: inline-block;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 18px;
+            font-size: 0.72rem;
+            color: var(--chalk-dim);
+        }
+
+        @media print {
+            body {
+                background: white;
+                color: black;
+                padding: 0;
+            }
+
+            .controls,
+            footer,
+            .legend,
+            .tabs {
+                display: none;
+            }
+
+            .hall {
+                background: white;
+                border: none;
+                box-shadow: none;
+            }
+
+            .podium {
+                background: #ddd;
+                color: #000;
+            }
+
+            .seat {
+                background: #fff;
+                border: 1px solid #999;
+            }
+
+            .seat.filled {
+                background: #f0e2cf;
+            }
+        }
+
+        @media (max-width:600px) {
+            .hall {
+                padding: 16px 8px;
+            }
+
+            .seat {
+                width: 48px;
+                height: 42px;
+            }
+
+            .tab {
+                padding: 8px 12px;
+                font-size: 0.78rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <header>
+            <h1>Lecture Hall Seatmap</h1>
+            <p>Click a seat to name it. Search finds a student across all three columns. Switch modes to take
+                attendance.</p>
+        </header>
+
+        <div class="controls">
+            <input type="text" id="search" placeholder="Search student name…" autocomplete="off">
+            <button class="btn active" id="modeRoster" data-mode="roster">✏️ Edit Roster</button>
+            <button class="btn" id="modeAttendance" data-mode="attendance">✅ Take Attendance</button>
+            <button class="btn" id="clearAttendance">Reset Today's Attendance</button>
+            <button class="btn danger" id="clearRoster">Clear All Names</button>
+            <button class="btn" id="mirrorBtn">🔄 Mirror Layout</button>
+            <button class="btn" id="exportBtn">⬇️ Export JSON</button>
+            <button class="btn" id="printBtn">🖨️ Print</button>
+        </div>
+        <div class="controls" style="margin-bottom:0;">
+            <div class="stats">
+                <span>Seats filled this column: <b id="statFilled">0</b>/<b id="statTotal">0</b></span>
+                <span id="attendanceStat" style="display:none">Present: <b id="statPresent">0</b> · Absent: <b
+                        id="statAbsent">0</b></span>
+            </div>
+        </div>
+
+        <div class="tabs" id="tabs"></div>
+        <div class="search-banner" id="searchBanner"></div>
+
+        <div class="hall" id="hall">
+            <div id="podiumBlock">
+                <div class="podium">PODIUM — FACING CLASS</div>
+                <div class="podium-note">Row A is closest to podium · Row I is farthest</div>
+            </div>
+            <div id="grid"></div>
+            <div class="legend">
+                <span><i class="swatch" style="background:var(--empty);border:1px solid var(--empty-border)"></i>Empty
+                    seat</span>
+                <span><i class="swatch" style="background:var(--wood)"></i>Named seat</span>
+                <span><i class="swatch" style="background:var(--present)"></i>Present (attendance mode)</span>
+                <span><i class="swatch" style="background:var(--absent)"></i>Absent (attendance mode)</span>
+            </div>
+        </div>
+
+        <footer>Names and attendance are saved in this browser (this file, this device) and stay put across refreshes.
+            Clearing your browser's site data for this file will reset it. Attendance resets fresh each day
+            automatically.</footer>
+    </div>
+
+    <script>
+        const ROWS = [
+            { label: 'A', c1: [11, 15], c2: [21, 28], c3: [31, 35] },
+            { label: 'B', c1: [11, 16], c2: [21, 27], c3: [31, 36] },
+            { label: 'C', c1: [11, 17], c2: [21, 28], c3: [31, 37] },
+            { label: 'D', c1: [11, 18], c2: [21, 27], c3: [31, 38] },
+            { label: 'E', c1: [11, 18], c2: [21, 28], c3: [31, 38] },
+            { label: 'F', c1: [11, 19], c2: [21, 27], c3: [31, 39] },
+            { label: 'G', c1: [11, 19], c2: [21, 28], c3: [31, 39] },
+            { label: 'H', c1: [11, 19], c2: [21, 27], c3: [31, 39] },
+            { label: 'I', c1: [11, 19], c2: [21, 28], c3: [31, 39] },
+        ];
+        const COLUMNS = [
+            { key: 'c1', name: 'Column 1', range: 'Seats 11–19' },
+            { key: 'c2', name: 'Column 2', range: 'Seats 21–28' },
+            { key: 'c3', name: 'Column 3', range: 'Seats 31–39' },
+        ];
+
+        const todayKey = 'attendance-' + new Date().toISOString().slice(0, 10);
+        let roster = {};       // seatId -> name
+        let attendance = {};   // seatId -> 'present' | 'absent'
+        let mode = 'roster';
+        let activeCol = 0;     // index into COLUMNS
+        let mirrored = false;
+
+        function buildRowSeatIds(range) {
+            const ids = [];
+            for (let n = range[0]; n <= range[1]; n++) ids.push(n);
+            return ids;
+        }
+
+        async function loadData() {
+            try {
+                const r = await storageGet('roster');
+                roster = r ? JSON.parse(r) : {};
+            } catch (e) { roster = {}; }
+            try {
+                const a = await storageGet(todayKey);
+                attendance = a ? JSON.parse(a) : {};
+            } catch (e) { attendance = {}; }
+        }
+
+        async function saveRoster() {
+            try { await storageSet('roster', JSON.stringify(roster)); }
+            catch (e) { console.error('Failed to save roster', e); }
+        }
+        async function saveAttendance() {
+            try { await storageSet(todayKey, JSON.stringify(attendance)); }
+            catch (e) { console.error('Failed to save attendance', e); }
+        }
+
+        // Storage backend: use Claude's window.storage when this page is running inside
+        // a Claude preview sandbox; otherwise (opened as a normal downloaded HTML file)
+        // fall back to the browser's own localStorage, which persists across refreshes.
+        const HAS_CLOUD_STORAGE = (typeof window !== 'undefined' && !!window.storage);
+
+        async function storageGet(key) {
+            if (HAS_CLOUD_STORAGE) {
+                try {
+                    const r = await window.storage.get(key, false);
+                    return r ? r.value : null;
+                } catch (e) { return null; }
+            }
+            try { return localStorage.getItem('seatmap:' + key); }
+            catch (e) { return null; }
+        }
+
+        async function storageSet(key, value) {
+            if (HAS_CLOUD_STORAGE) {
+                try { await window.storage.set(key, value, false); return; }
+                catch (e) { /* fall through to local as a safety net */ }
+            }
+            try { localStorage.setItem('seatmap:' + key, value); }
+            catch (e) { console.error('localStorage save failed', e); }
+        }
+
+        function escapeHtml(s) {
+            return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        function seatEl(rowLabel, num, seatIndex, rowWidth) {
+            const id = rowLabel + num;
+            const div = document.createElement('div');
+            div.className = 'seat';
+            div.dataset.id = id;
+
+            // gentle amphitheater curve: center seats sit slightly closer to the podium
+            const center = (rowWidth - 1) / 2;
+            const t = center > 0 ? (seatIndex - center) / center : 0;
+            const curveOffset = -6 * (1 - t * t);
+            div.style.transform = `translateY(${curveOffset}px)`;
+
+            const name = roster[id];
+            if (name) div.classList.add('filled');
+            const status = attendance[id];
+            if (mode === 'attendance' && status) div.classList.add(status);
+
+            div.innerHTML = `<span class="seat-num mono-code">${id}</span><span class="seat-name">${name ? escapeHtml(name) : '—'}</span>`;
+            div.addEventListener('click', () => onSeatClick(id, div));
+            return div;
+        }
+
+        function onSeatClick(id, div) {
+            if (mode === 'attendance') {
+                const cur = attendance[id];
+                const next = cur === 'present' ? 'absent' : cur === 'absent' ? null : 'present';
+                if (next) attendance[id] = next; else delete attendance[id];
+                saveAttendance();
+                renderGrid();
+                updateStats();
+                updateSearchBanner();
+                return;
+            }
+            if (div.querySelector('input')) return;
+            const current = roster[id] || '';
+            div.innerHTML = `<input type="text" maxlength="24" value="${current.replace(/"/g, '&quot;')}" placeholder="${id}">`;
+            const input = div.querySelector('input');
+            input.focus();
+            input.select();
+            const commit = () => {
+                const val = input.value.trim();
+                if (val) roster[id] = val; else delete roster[id];
+                saveRoster();
+                renderTabs();
+                renderGrid();
+                updateStats();
+                updateSearchBanner();
+            };
+            input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); if (e.key === 'Escape') { renderGrid(); } });
+            input.addEventListener('blur', commit);
+        }
+
+        function matchCountForColumn(colIndex, query) {
+            if (!query) return 0;
+            const colKey = COLUMNS[colIndex].key;
+            let count = 0;
+            ROWS.forEach(row => {
+                buildRowSeatIds(row[colKey]).forEach(num => {
+                    const id = row.label + num;
+                    const name = (roster[id] || '').toLowerCase();
+                    if (name && name.includes(query)) count++;
+                });
+            });
+            return count;
+        }
+
+        function renderTabs() {
+            const tabsEl = document.getElementById('tabs');
+            const query = document.getElementById('search').value.trim().toLowerCase();
+            tabsEl.innerHTML = '';
+            COLUMNS.forEach((col, i) => {
+                const count = matchCountForColumn(i, query);
+                const tab = document.createElement('div');
+                tab.className = 'tab' + (i === activeCol ? ' active' : '') + (count > 0 ? ' has-match' : '');
+                tab.setAttribute('role', 'button');
+                tab.tabIndex = 0;
+                tab.innerHTML = `${col.name}<span class="range">${col.range}</span>` +
+                    (count > 0 && i !== activeCol ? `<span class="badge">${count}</span>` : '');
+                tab.addEventListener('click', () => { activeCol = i; refreshAll(); });
+                tab.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') tab.click(); });
+                tabsEl.appendChild(tab);
+            });
+        }
+
+        function updateSearchBanner() {
+            const banner = document.getElementById('searchBanner');
+            const query = document.getElementById('search').value.trim().toLowerCase();
+            if (!query) { banner.style.display = 'none'; return; }
+            const otherMatches = COLUMNS
+                .map((col, i) => ({ i, count: matchCountForColumn(i, query) }))
+                .filter(c => c.i !== activeCol && c.count > 0);
+            if (otherMatches.length === 0) { banner.style.display = 'none'; return; }
+            const names = otherMatches.map(c => `${COLUMNS[c.i].name} (${c.count})`).join(' · ');
+            banner.textContent = `Also found in: ${names} — click to jump`;
+            banner.style.display = 'block';
+            banner.onclick = () => { activeCol = otherMatches[0].i; refreshAll(); };
+        }
+
+        function refreshAll() {
+            updateHallOrder();
+            renderTabs();
+            renderGrid();
+            updateStats();
+            updateSearchBanner();
+        }
+
+        function renderGrid() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            const colKey = COLUMNS[activeCol].key;
+            const orderedRows = mirrored ? [...ROWS].reverse() : ROWS;
+            orderedRows.forEach(row => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'row';
+                const label = document.createElement('div');
+                label.className = 'row-label';
+                label.textContent = row.label;
+                rowDiv.appendChild(label);
+
+                const group = document.createElement('div');
+                group.className = 'seat-group';
+                const seatIds = buildRowSeatIds(row[colKey]);
+                seatIds.forEach((num, idx) => group.appendChild(seatEl(row.label, num, idx, seatIds.length)));
+                rowDiv.appendChild(group);
+                grid.appendChild(rowDiv);
+            });
+            applySearch();
+        }
+
+        function updateHallOrder() {
+            const hall = document.getElementById('hall');
+            const podiumBlock = document.getElementById('podiumBlock');
+            const grid = document.getElementById('grid');
+            hall.classList.toggle('mirrored', mirrored);
+            if (mirrored) {
+                hall.insertBefore(grid, podiumBlock);
+            } else {
+                hall.insertBefore(podiumBlock, grid);
+            }
+        }
+
+        function totalSeatsInColumn() {
+            const colKey = COLUMNS[activeCol].key;
+            return ROWS.reduce((sum, row) => sum + (row[colKey][1] - row[colKey][0] + 1), 0);
+        }
+
+        function filledSeatsInColumn() {
+            const colKey = COLUMNS[activeCol].key;
+            let count = 0;
+            ROWS.forEach(row => {
+                buildRowSeatIds(row[colKey]).forEach(num => { if (roster[row.label + num]) count++; });
+            });
+            return count;
+        }
+
+        function updateStats() {
+            document.getElementById('statFilled').textContent = filledSeatsInColumn();
+            document.getElementById('statTotal').textContent = totalSeatsInColumn();
+            const present = Object.values(attendance).filter(s => s === 'present').length;
+            const absent = Object.values(attendance).filter(s => s === 'absent').length;
+            document.getElementById('statPresent').textContent = present;
+            document.getElementById('statAbsent').textContent = absent;
+            document.getElementById('attendanceStat').style.display = mode === 'attendance' ? 'inline' : 'none';
+        }
+
+        function findSeatColumn(id) {
+            // returns column index containing this seat id, or -1
+            const rowLabel = id[0];
+            const num = parseInt(id.slice(1), 10);
+            const row = ROWS.find(r => r.label === rowLabel);
+            if (!row) return -1;
+            for (let i = 0; i < COLUMNS.length; i++) {
+                const range = row[COLUMNS[i].key];
+                if (num >= range[0] && num <= range[1]) return i;
+            }
+            return -1;
+        }
+
+        function applySearch() {
+            const q = document.getElementById('search').value.trim().toLowerCase();
+            const seats = document.querySelectorAll('.seat');
+            seats.forEach(s => {
+                s.classList.remove('dim', 'spotlight');
+                if (!q) return;
+                const id = s.dataset.id;
+                const name = (roster[id] || '').toLowerCase();
+                if (name.includes(q)) {
+                    s.classList.add('spotlight');
+                } else {
+                    s.classList.add('dim');
+                }
+            });
+        }
+
+        document.getElementById('search').addEventListener('input', () => {
+            const q = document.getElementById('search').value.trim().toLowerCase();
+            if (q && matchCountForColumn(activeCol, q) === 0) {
+                // nothing in the column you're currently viewing — jump to the first column that has a match
+                const firstMatch = COLUMNS.findIndex((col, i) => matchCountForColumn(i, q) > 0);
+                if (firstMatch !== -1) {
+                    activeCol = firstMatch;
+                    refreshAll();
+                    return;
+                }
+            }
+            refreshAll();
+        });
+
+        document.getElementById('modeRoster').addEventListener('click', () => setMode('roster'));
+        document.getElementById('modeAttendance').addEventListener('click', () => setMode('attendance'));
+
+        function setMode(m) {
+            mode = m;
+            document.getElementById('modeRoster').classList.toggle('active', m === 'roster');
+            document.getElementById('modeAttendance').classList.toggle('active', m === 'attendance');
+            renderGrid();
+            updateStats();
+        }
+
+        document.getElementById('clearAttendance').addEventListener('click', async () => {
+            if (!confirm("Reset today's attendance marks?")) return;
+            attendance = {};
+            await saveAttendance();
+            renderGrid();
+            updateStats();
+        });
+
+        document.getElementById('clearRoster').addEventListener('click', async () => {
+            if (!confirm('This will remove every student name from every seat in every column. Continue?')) return;
+            roster = {};
+            await saveRoster();
+            refreshAll();
+        });
+
+        document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const data = [];
+            ROWS.forEach(row => {
+                COLUMNS.forEach(col => {
+                    buildRowSeatIds(row[col.key]).forEach(num => {
+                        const id = row.label + num;
+                        data.push({
+                            seat: id,
+                            column: col.name,
+                            row: row.label,
+                            name: roster[id] || null,
+                            attendance: attendance[id] || 'not marked'
+                        });
+                    });
+                });
+            });
+            const exportObj = { date: todayKey.replace('attendance-', ''), seats: data };
+            const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `seatmap-${exportObj.date}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        document.getElementById('mirrorBtn').addEventListener('click', () => {
+            mirrored = !mirrored;
+            document.getElementById('mirrorBtn').classList.toggle('active', mirrored);
+            updateHallOrder();
+            renderGrid();
+        });
+
+        (async function init() {
+            await loadData();
+            refreshAll();
+        })();
+    </script>
+</body>
+
+</html>
