@@ -24,6 +24,21 @@
             --empty-border: #2c507e;
             --present: #4C9A6A;
             --absent: #C1453A;
+            --grp-yellow: #E8C547;
+            --grp-red: #D6553F;
+            --grp-blue: #5390D9;
+            --grp-green: #5FAE68;
+            --grp-black: #2b2b2b;
+            --grp-yellow-light: #F6E9A8;
+            --grp-yellow-light-dark: #E9D272;
+            --grp-red-light: #F1BDB1;
+            --grp-red-light-dark: #E29685;
+            --grp-blue-light: #BBD9F5;
+            --grp-blue-light-dark: #8FBBE8;
+            --grp-green-light: #C3E7C6;
+            --grp-green-light-dark: #96D19D;
+            --grp-black-light: #D4D4D4;
+            --grp-black-light-dark: #AFAFAF;
             --radius: 9px;
             --shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
         }
@@ -51,7 +66,7 @@
         }
 
         .wrap {
-            max-width: 900px;
+            max-width: 1200px;
             margin: 0 auto;
         }
 
@@ -141,6 +156,25 @@
             outline-offset: 2px;
         }
 
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .btn:disabled:hover {
+            background: var(--bg-panel-alt);
+        }
+
+        .btn.lock {
+            font-weight: 700;
+        }
+
+        .btn.lock.unlocked {
+            background: var(--present);
+            color: var(--bg-deep);
+            border-color: var(--present);
+        }
+
         .stats {
             display: flex;
             gap: 16px;
@@ -153,7 +187,6 @@
             color: var(--brass-soft);
         }
 
-        /* Column tabs */
         .tabs {
             display: flex;
             gap: 6px;
@@ -256,6 +289,52 @@
             background: var(--brass);
         }
 
+        .import-summary {
+            display: none;
+            font-size: 0.82rem;
+            color: var(--chalk);
+            background: var(--bg-panel);
+            border: 1px solid var(--brass);
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin: 0 auto 16px;
+            max-width: 600px;
+            text-align: left;
+            position: relative;
+        }
+
+        .import-summary b {
+            color: var(--brass-soft);
+        }
+
+        .import-summary .close-x {
+            position: absolute;
+            top: 8px;
+            right: 10px;
+            cursor: pointer;
+            color: var(--chalk-dim);
+            font-size: 0.9rem;
+        }
+
+        .import-summary .warn-list {
+            color: var(--absent);
+            margin-top: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+        }
+
+        .lock-banner {
+            text-align: center;
+            font-size: 0.76rem;
+            color: var(--chalk-dim);
+            margin: -10px auto 16px;
+            max-width: 520px;
+        }
+
+        .lock-banner b {
+            color: var(--brass-soft);
+        }
+
         .hall {
             background: var(--bg-panel-alt);
             border: 1px solid var(--empty-border);
@@ -303,13 +382,14 @@
         }
 
         .row-label {
-            width: 34px;
+            width: 24px;
             flex-shrink: 0;
             font-family: 'JetBrains Mono', monospace;
             font-weight: 700;
             color: var(--brass-soft);
             font-size: 0.85rem;
             text-align: center;
+            margin-right: 2px;
         }
 
         .seat-group {
@@ -317,13 +397,14 @@
             gap: 6px;
             justify-content: center;
             flex: 1;
+            flex-wrap: wrap;
         }
 
         .seat {
-            width: 58px;
-            height: 46px;
+            width: 110px;
+            height: 72px;
             flex-shrink: 0;
-            border-radius: 6px 6px 3px 3px;
+            border-radius: 7px 7px 3px 3px;
             background: var(--empty);
             border: 1px solid var(--empty-border);
             border-top: 3px solid var(--empty-border);
@@ -343,14 +424,41 @@
         }
 
         .seat.filled {
-            background: linear-gradient(180deg, var(--wood), var(--wood-dark));
-            border-color: var(--wood-dark);
             border-top-color: var(--brass-soft);
+        }
+
+        .seat.filled.grp-yellow {
+            background: linear-gradient(180deg, var(--grp-yellow-light), var(--grp-yellow-light-dark));
+            border-color: var(--grp-yellow-light-dark);
+        }
+
+        .seat.filled.grp-red {
+            background: linear-gradient(180deg, var(--grp-red-light), var(--grp-red-light-dark));
+            border-color: var(--grp-red-light-dark);
+        }
+
+        .seat.filled.grp-blue {
+            background: linear-gradient(180deg, var(--grp-blue-light), var(--grp-blue-light-dark));
+            border-color: var(--grp-blue-light-dark);
+        }
+
+        .seat.filled.grp-green {
+            background: linear-gradient(180deg, var(--grp-green-light), var(--grp-green-light-dark));
+            border-color: var(--grp-green-light-dark);
+        }
+
+        .seat.filled.grp-black {
+            background: linear-gradient(180deg, var(--grp-black-light), var(--grp-black-light-dark));
+            border-color: var(--grp-black-light-dark);
+        }
+
+        .seat.extra {
+            border-style: dashed;
         }
 
         .seat .seat-num {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.62rem;
+            font-size: 0.7rem;
             color: var(--chalk-dim);
             line-height: 1;
         }
@@ -360,20 +468,21 @@
         }
 
         .seat .seat-name {
-            font-size: 0.62rem;
+            font-size: 0.9rem;
             font-weight: 600;
             color: var(--chalk);
             line-height: 1.15;
             text-align: center;
-            max-width: 54px;
+            max-width: 100%;
             overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            margin-top: 1px;
+            /* text-overflow: ellipsis; */
+            /* white-space: nowrap; */
+            margin-top: 2px;
+            text-transform: uppercase;
         }
 
         .seat.filled .seat-name {
-            color: #1b2f22;
+            color: var(--bg-deep);
         }
 
         .seat.dim {
@@ -405,23 +514,231 @@
             opacity: 0.55;
         }
 
-        .seat input {
-            width: 50px;
-            background: var(--bg-deep);
+        .seat .grp-dot {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            box-shadow: 0 0 0 1px rgba(12, 27, 48, 0.5);
+        }
+
+        .add-seat-btn {
+            width: 72px;
+            height: 58px;
+            flex-shrink: 0;
+            border-radius: 7px 7px 3px 3px;
+            background: transparent;
+            border: 1px dashed var(--chalk-dim);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--chalk-dim);
+            font-size: 1.3rem;
+            font-weight: 300;
+            transition: all .15s ease;
+        }
+
+        .add-seat-btn:hover {
+            background: rgba(228, 197, 94, 0.12);
+            border-color: var(--brass-soft);
+            color: var(--brass-soft);
+        }
+
+        /* Modal popup */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(6, 14, 26, 0.72);
+            z-index: 50;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.open {
+            display: flex;
+        }
+
+        .modal-card {
+            background: var(--bg-panel);
             border: 1px solid var(--brass);
-            border-radius: 4px;
+            border-radius: 14px;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 18px 40px 16px 26px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .modal-header-left {
+            min-width: 0;
+        }
+
+        .modal-header-name {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--bg-deep);
+            text-transform: uppercase;
+            text-align: right;
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .modal-header-name.empty {
+            font-weight: 500;
+            opacity: 0.55;
+            font-style: italic;
+            text-transform: none;
+        }
+
+        .modal-body {
+            padding: 6px 26px 24px;
+        }
+
+        .modal-header.grp-yellow {
+            background: linear-gradient(180deg, var(--grp-yellow-light), var(--grp-yellow-light-dark));
+        }
+
+        .modal-header.grp-red {
+            background: linear-gradient(180deg, var(--grp-red-light), var(--grp-red-light-dark));
+        }
+
+        .modal-header.grp-blue {
+            background: linear-gradient(180deg, var(--grp-blue-light), var(--grp-blue-light-dark));
+        }
+
+        .modal-header.grp-green {
+            background: linear-gradient(180deg, var(--grp-green-light), var(--grp-green-light-dark));
+        }
+
+        .modal-header.grp-black {
+            background: linear-gradient(180deg, var(--grp-black-light), var(--grp-black-light-dark));
+        }
+
+        .modal-header.grp-yellow h3,
+        .modal-header.grp-yellow .modal-sub,
+        .modal-header.grp-red h3,
+        .modal-header.grp-red .modal-sub,
+        .modal-header.grp-blue h3,
+        .modal-header.grp-blue .modal-sub,
+        .modal-header.grp-green h3,
+        .modal-header.grp-green .modal-sub,
+        .modal-header.grp-black h3,
+        .modal-header.grp-black .modal-sub {
+            color: var(--bg-deep);
+        }
+
+        .modal-card h3 {
+            margin: 0 0 2px;
+            font-size: 1.15rem;
+            color: var(--brass-soft);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-dot {
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25);
+        }
+
+        .modal-card .modal-sub {
+            font-size: 0.78rem;
+            color: var(--chalk-dim);
+            margin-bottom: 16px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 14px;
+            right: 16px;
+            cursor: pointer;
+            color: var(--bg-deep);
+            opacity: 0.55;
+            font-size: 1.1rem;
+        }
+
+        .modal-close:hover {
+            opacity: 1;
+        }
+
+        .modal-field {
+            margin-bottom: 12px;
+        }
+
+        .modal-field label {
+            display: block;
+            font-size: 0.72rem;
+            color: var(--chalk-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+        }
+
+        .modal-field .value {
+            font-size: 0.95rem;
             color: var(--chalk);
-            font-size: 0.62rem;
-            text-align: center;
+            min-height: 1.3em;
+        }
+
+        .modal-field .value.empty {
+            color: var(--chalk-dim);
+            font-style: italic;
+        }
+
+        .modal-field input,
+        .modal-field textarea {
+            width: 100%;
+            background: var(--bg-deep);
+            border: 1px solid var(--empty-border);
+            color: var(--chalk);
+            padding: 8px 10px;
+            border-radius: 7px;
+            font-size: 0.88rem;
             font-family: 'Inter', sans-serif;
-            padding: 2px;
+        }
+
+        .modal-field textarea {
+            resize: vertical;
+            min-height: 44px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 18px;
+            flex-wrap: wrap;
+        }
+
+        .modal-actions .btn.danger {
+            margin-right: auto;
         }
 
         .legend {
             display: flex;
             gap: 18px;
             justify-content: center;
-            margin-top: 22px;
+            margin-top: 20px;
             flex-wrap: wrap;
             font-size: 0.75rem;
             color: var(--chalk-dim);
@@ -457,7 +774,9 @@
             .controls,
             footer,
             .legend,
-            .tabs {
+            .tabs,
+            .lock-banner,
+            .add-seat-btn {
                 display: none;
             }
 
@@ -487,9 +806,10 @@
                 padding: 16px 8px;
             }
 
-            .seat {
-                width: 48px;
-                height: 42px;
+            .seat,
+            .add-seat-btn {
+                width: 60px;
+                height: 50px;
             }
 
             .tab {
@@ -504,19 +824,23 @@
     <div class="wrap">
         <header>
             <h1>Lecture Hall Seatmap</h1>
-            <p>Click a seat to name it. Search finds a student across all three columns. Switch modes to take
-                attendance.</p>
+            <p>Click a seat to view its details. Unlock editing to make changes.</p>
         </header>
 
         <div class="controls">
             <input type="text" id="search" placeholder="Search student name…" autocomplete="off">
-            <button class="btn active" id="modeRoster" data-mode="roster">✏️ Edit Roster</button>
-            <button class="btn" id="modeAttendance" data-mode="attendance">✅ Take Attendance</button>
+            <button class="btn" id="modeRoster">📋 Roster Mode</button>
+            <button class="btn" id="modeAttendance">✅ Attendance Mode</button>
+            <button class="btn lock" id="lockToggle">🔒 Editing Locked</button>
+        </div>
+        <div class="controls">
+            <button class="btn" id="importBtn">⬆️ Import CSV</button>
+            <input type="file" id="csvFile" accept=".csv,text/csv" style="display:none">
+            <button class="btn" id="exportBtn">⬇️ Export JSON</button>
+            <button class="btn" id="mirrorBtn">🔄 Mirror Layout</button>
+            <button class="btn" id="printBtn">🖨️ Print</button>
             <button class="btn" id="clearAttendance">Reset Today's Attendance</button>
             <button class="btn danger" id="clearRoster">Clear All Names</button>
-            <button class="btn" id="mirrorBtn">🔄 Mirror Layout</button>
-            <button class="btn" id="exportBtn">⬇️ Export JSON</button>
-            <button class="btn" id="printBtn">🖨️ Print</button>
         </div>
         <div class="controls" style="margin-bottom:0;">
             <div class="stats">
@@ -528,6 +852,10 @@
 
         <div class="tabs" id="tabs"></div>
         <div class="search-banner" id="searchBanner"></div>
+        <div class="import-summary" id="importSummary"></div>
+        <div class="lock-banner" id="lockBanner">🔒 Editing is locked — seats open a read-only info card. Click
+            <b>Editing Locked</b> above to make changes.
+        </div>
 
         <div class="hall" id="hall">
             <div id="podiumBlock">
@@ -538,15 +866,31 @@
             <div class="legend">
                 <span><i class="swatch" style="background:var(--empty);border:1px solid var(--empty-border)"></i>Empty
                     seat</span>
-                <span><i class="swatch" style="background:var(--wood)"></i>Named seat</span>
+                <span><i class="swatch" style="background:var(--wood)"></i>Named seat (tinted by its color group)</span>
                 <span><i class="swatch" style="background:var(--present)"></i>Present (attendance mode)</span>
                 <span><i class="swatch" style="background:var(--absent)"></i>Absent (attendance mode)</span>
+            </div>
+            <div class="legend" style="margin-top:6px;">
+                <span><i class="swatch" style="background:var(--grp-yellow);border-radius:50%"></i>Rows A/C/E/G/I — odd
+                    seat</span>
+                <span><i class="swatch" style="background:var(--grp-red);border-radius:50%"></i>Rows A/C/E/G/I — even
+                    seat</span>
+                <span><i class="swatch" style="background:var(--grp-blue);border-radius:50%"></i>Rows B/D/F/H — odd
+                    seat</span>
+                <span><i class="swatch" style="background:var(--grp-green);border-radius:50%"></i>Rows B/D/F/H — even
+                    seat</span>
+                <span><i class="swatch" style="background:var(--grp-black);border-radius:50%"></i>Extra / overflow
+                    seat</span>
             </div>
         </div>
 
         <footer>Names and attendance are saved in this browser (this file, this device) and stay put across refreshes.
             Clearing your browser's site data for this file will reset it. Attendance resets fresh each day
             automatically.</footer>
+    </div>
+
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-card" id="modalCard"></div>
     </div>
 
     <script>
@@ -568,11 +912,13 @@
         ];
 
         const todayKey = 'attendance-' + new Date().toISOString().slice(0, 10);
-        let roster = {};       // seatId -> name
-        let attendance = {};   // seatId -> 'present' | 'absent'
-        let mode = 'roster';
-        let activeCol = 0;     // index into COLUMNS
+        let roster = {};        // seatId -> { name, rollNo, notes }
+        let attendance = {};    // seatId -> 'present' | 'absent'
+        let extraSeats = {};    // extraId -> { row, colKey, order }
+        let mode = 'roster';    // 'roster' | 'attendance'
+        let activeCol = 0;
         let mirrored = false;
+        let editUnlocked = false;
 
         function buildRowSeatIds(range) {
             const ids = [];
@@ -580,78 +926,85 @@
             return ids;
         }
 
-        async function loadData() {
-            try {
-                const r = await storageGet('roster');
-                roster = r ? JSON.parse(r) : {};
-            } catch (e) { roster = {}; }
-            try {
-                const a = await storageGet(todayKey);
-                attendance = a ? JSON.parse(a) : {};
-            } catch (e) { attendance = {}; }
+        function seatColorGroup(rowLabel, position) {
+            const rowIdx = rowLabel.charCodeAt(0) - 65;
+            const isOddRow = rowIdx % 2 === 0;
+            if (isOddRow) return position % 2 === 1 ? 'yellow' : 'red';
+            return position % 2 === 1 ? 'blue' : 'green';
         }
 
-        async function saveRoster() {
-            try { await storageSet('roster', JSON.stringify(roster)); }
-            catch (e) { console.error('Failed to save roster', e); }
-        }
-        async function saveAttendance() {
-            try { await storageSet(todayKey, JSON.stringify(attendance)); }
-            catch (e) { console.error('Failed to save attendance', e); }
-        }
+        const GRP_COLORS = { yellow: 'var(--grp-yellow)', red: 'var(--grp-red)', blue: 'var(--grp-blue)', green: 'var(--grp-green)', black: 'var(--grp-black)' };
 
-        // Storage backend: use Claude's window.storage when this page is running inside
-        // a Claude preview sandbox; otherwise (opened as a normal downloaded HTML file)
-        // fall back to the browser's own localStorage, which persists across refreshes.
+        const ALL_VALID_SEATS = new Set();
+        ROWS.forEach(row => {
+            COLUMNS.forEach(col => {
+                buildRowSeatIds(row[col.key]).forEach(num => ALL_VALID_SEATS.add(row.label + num));
+            });
+        });
+
+        function getName(id) { return (roster[id] && roster[id].name) || ''; }
+        function hasEntry(id) { return !!(roster[id] && (roster[id].name || roster[id].rollNo || roster[id].notes)); }
+
+        // --- storage (works inside Claude's preview sandbox, or falls back to
+        // localStorage when this file is opened directly in a browser) ---
         const HAS_CLOUD_STORAGE = (typeof window !== 'undefined' && !!window.storage);
-
         async function storageGet(key) {
             if (HAS_CLOUD_STORAGE) {
-                try {
-                    const r = await window.storage.get(key, false);
-                    return r ? r.value : null;
-                } catch (e) { return null; }
+                try { const r = await window.storage.get(key, false); return r ? r.value : null; } catch (e) { return null; }
             }
-            try { return localStorage.getItem('seatmap:' + key); }
-            catch (e) { return null; }
+            try { return localStorage.getItem('seatmap:' + key); } catch (e) { return null; }
         }
-
         async function storageSet(key, value) {
             if (HAS_CLOUD_STORAGE) {
-                try { await window.storage.set(key, value, false); return; }
-                catch (e) { /* fall through to local as a safety net */ }
+                try { await window.storage.set(key, value, false); return; } catch (e) { /* fall through */ }
             }
-            try { localStorage.setItem('seatmap:' + key, value); }
-            catch (e) { console.error('localStorage save failed', e); }
+            try { localStorage.setItem('seatmap:' + key, value); } catch (e) { console.error('localStorage save failed', e); }
         }
+
+        async function loadData() {
+            try { const r = await storageGet('roster'); roster = r ? JSON.parse(r) : {}; } catch (e) { roster = {}; }
+            try { const a = await storageGet(todayKey); attendance = a ? JSON.parse(a) : {}; } catch (e) { attendance = {}; }
+            try { const x = await storageGet('extraSeats'); extraSeats = x ? JSON.parse(x) : {}; } catch (e) { extraSeats = {}; }
+        }
+        async function saveRoster() { try { await storageSet('roster', JSON.stringify(roster)); } catch (e) { console.error(e); } }
+        async function saveAttendance() { try { await storageSet(todayKey, JSON.stringify(attendance)); } catch (e) { console.error(e); } }
+        async function saveExtraSeats() { try { await storageSet('extraSeats', JSON.stringify(extraSeats)); } catch (e) { console.error(e); } }
 
         function escapeHtml(s) {
             return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         }
 
-        function seatEl(rowLabel, num, seatIndex, rowWidth) {
-            const id = rowLabel + num;
+        function extraSeatsForRowCol(rowLabel, colKey) {
+            return Object.keys(extraSeats)
+                .filter(id => extraSeats[id].row === rowLabel && extraSeats[id].colKey === colKey)
+                .sort((a, b) => extraSeats[a].order - extraSeats[b].order);
+        }
+
+        function seatEl(id, { isExtra, rowLabel, num, seatIndex, rowWidth, order }) {
             const div = document.createElement('div');
-            div.className = 'seat';
+            const group = isExtra ? 'black' : seatColorGroup(rowLabel, seatIndex + 1);
+            div.className = 'seat grp-' + group + (isExtra ? ' extra' : '');
             div.dataset.id = id;
 
-            // gentle amphitheater curve: center seats sit slightly closer to the podium
-            const center = (rowWidth - 1) / 2;
-            const t = center > 0 ? (seatIndex - center) / center : 0;
-            const curveOffset = -6 * (1 - t * t);
-            div.style.transform = `translateY(${curveOffset}px)`;
+            if (!isExtra) {
+                const center = (rowWidth - 1) / 2;
+                const t = center > 0 ? (seatIndex - center) / center : 0;
+                div.style.transform = `translateY(${-6 * (1 - t * t)}px)`;
+            }
 
-            const name = roster[id];
-            if (name) div.classList.add('filled');
+            const filled = hasEntry(id);
+            if (filled) div.classList.add('filled');
             const status = attendance[id];
             if (mode === 'attendance' && status) div.classList.add(status);
 
-            div.innerHTML = `<span class="seat-num mono-code">${id}</span><span class="seat-name">${name ? escapeHtml(name) : '—'}</span>`;
-            div.addEventListener('click', () => onSeatClick(id, div));
+            const label = isExtra ? `${rowLabel}+${order}` : id;
+            const name = getName(id);
+            div.innerHTML = `<span class="grp-dot" style="background:${GRP_COLORS[group]}"></span><span class="seat-num mono-code">${label}</span><span class="seat-name">${name ? escapeHtml(name) : '—'}</span>`;
+            div.addEventListener('click', () => onSeatClick(id));
             return div;
         }
 
-        function onSeatClick(id, div) {
+        function onSeatClick(id) {
             if (mode === 'attendance') {
                 const cur = attendance[id];
                 const next = cur === 'present' ? 'absent' : cur === 'absent' ? null : 'present';
@@ -662,37 +1015,81 @@
                 updateSearchBanner();
                 return;
             }
-            if (div.querySelector('input')) return;
-            const current = roster[id] || '';
-            div.innerHTML = `<input type="text" maxlength="24" value="${current.replace(/"/g, '&quot;')}" placeholder="${id}">`;
-            const input = div.querySelector('input');
-            input.focus();
-            input.select();
-            const commit = () => {
-                const val = input.value.trim();
-                if (val) roster[id] = val; else delete roster[id];
-                saveRoster();
-                renderTabs();
-                renderGrid();
-                updateStats();
-                updateSearchBanner();
-            };
-            input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); if (e.key === 'Escape') { renderGrid(); } });
-            input.addEventListener('blur', commit);
+            openSeatModal(id);
         }
+
+        function addSeatBtn(rowLabel, colKey) {
+            const btn = document.createElement('div');
+            btn.className = 'add-seat-btn';
+            btn.textContent = '+';
+            btn.title = 'Add an extra seat to this row';
+            btn.addEventListener('click', async () => {
+                const order = extraSeatsForRowCol(rowLabel, colKey).length + 1;
+                const id = `${rowLabel}_${colKey}_ex_${Date.now()}`;
+                extraSeats[id] = { row: rowLabel, colKey, order };
+                await saveExtraSeats();
+                refreshAll();
+                openSeatModal(id);
+            });
+            return btn;
+        }
+
+        function renderGrid() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            const colKey = COLUMNS[activeCol].key;
+            const orderedRows = mirrored ? [...ROWS].reverse() : ROWS;
+            orderedRows.forEach(row => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'row';
+                const label = document.createElement('div');
+                label.className = 'row-label';
+                label.textContent = row.label;
+                rowDiv.appendChild(label);
+
+                const group = document.createElement('div');
+                group.className = 'seat-group';
+                const seatIds = buildRowSeatIds(row[colKey]);
+                seatIds.forEach((num, idx) => group.appendChild(
+                    seatEl(row.label + num, { isExtra: false, rowLabel: row.label, num, seatIndex: idx, rowWidth: seatIds.length })
+                ));
+                extraSeatsForRowCol(row.label, colKey).forEach(exId => {
+                    group.appendChild(seatEl(exId, { isExtra: true, rowLabel: row.label, order: extraSeats[exId].order }));
+                });
+                if (editUnlocked && mode === 'roster') {
+                    group.appendChild(addSeatBtn(row.label, colKey));
+                }
+                rowDiv.appendChild(group);
+                grid.appendChild(rowDiv);
+            });
+            applySearch();
+        }
+
+        function updateHallOrder() {
+            const hall = document.getElementById('hall');
+            const podiumBlock = document.getElementById('podiumBlock');
+            const grid = document.getElementById('grid');
+            hall.classList.toggle('mirrored', mirrored);
+            if (mirrored) hall.insertBefore(grid, podiumBlock);
+            else hall.insertBefore(podiumBlock, grid);
+        }
+
+        function allSeatIdsInColumn(colIndex) {
+            const colKey = COLUMNS[colIndex].key;
+            const ids = [];
+            ROWS.forEach(row => {
+                buildRowSeatIds(row[colKey]).forEach(num => ids.push(row.label + num));
+                extraSeatsForRowCol(row.label, colKey).forEach(exId => ids.push(exId));
+            });
+            return ids;
+        }
+
+        function totalSeatsInColumn() { return allSeatIdsInColumn(activeCol).length; }
+        function filledSeatsInColumn() { return allSeatIdsInColumn(activeCol).filter(hasEntry).length; }
 
         function matchCountForColumn(colIndex, query) {
             if (!query) return 0;
-            const colKey = COLUMNS[colIndex].key;
-            let count = 0;
-            ROWS.forEach(row => {
-                buildRowSeatIds(row[colKey]).forEach(num => {
-                    const id = row.label + num;
-                    const name = (roster[id] || '').toLowerCase();
-                    if (name && name.includes(query)) count++;
-                });
-            });
-            return count;
+            return allSeatIdsInColumn(colIndex).filter(id => getName(id).toLowerCase().includes(query)).length;
         }
 
         function renderTabs() {
@@ -727,61 +1124,15 @@
             banner.onclick = () => { activeCol = otherMatches[0].i; refreshAll(); };
         }
 
-        function refreshAll() {
-            updateHallOrder();
-            renderTabs();
-            renderGrid();
-            updateStats();
-            updateSearchBanner();
-        }
-
-        function renderGrid() {
-            const grid = document.getElementById('grid');
-            grid.innerHTML = '';
-            const colKey = COLUMNS[activeCol].key;
-            const orderedRows = mirrored ? [...ROWS].reverse() : ROWS;
-            orderedRows.forEach(row => {
-                const rowDiv = document.createElement('div');
-                rowDiv.className = 'row';
-                const label = document.createElement('div');
-                label.className = 'row-label';
-                label.textContent = row.label;
-                rowDiv.appendChild(label);
-
-                const group = document.createElement('div');
-                group.className = 'seat-group';
-                const seatIds = buildRowSeatIds(row[colKey]);
-                seatIds.forEach((num, idx) => group.appendChild(seatEl(row.label, num, idx, seatIds.length)));
-                rowDiv.appendChild(group);
-                grid.appendChild(rowDiv);
+        function applySearch() {
+            const q = document.getElementById('search').value.trim().toLowerCase();
+            document.querySelectorAll('.seat').forEach(s => {
+                s.classList.remove('dim', 'spotlight');
+                if (!q) return;
+                const name = getName(s.dataset.id).toLowerCase();
+                if (name.includes(q)) s.classList.add('spotlight');
+                else s.classList.add('dim');
             });
-            applySearch();
-        }
-
-        function updateHallOrder() {
-            const hall = document.getElementById('hall');
-            const podiumBlock = document.getElementById('podiumBlock');
-            const grid = document.getElementById('grid');
-            hall.classList.toggle('mirrored', mirrored);
-            if (mirrored) {
-                hall.insertBefore(grid, podiumBlock);
-            } else {
-                hall.insertBefore(podiumBlock, grid);
-            }
-        }
-
-        function totalSeatsInColumn() {
-            const colKey = COLUMNS[activeCol].key;
-            return ROWS.reduce((sum, row) => sum + (row[colKey][1] - row[colKey][0] + 1), 0);
-        }
-
-        function filledSeatsInColumn() {
-            const colKey = COLUMNS[activeCol].key;
-            let count = 0;
-            ROWS.forEach(row => {
-                buildRowSeatIds(row[colKey]).forEach(num => { if (roster[row.label + num]) count++; });
-            });
-            return count;
         }
 
         function updateStats() {
@@ -794,58 +1145,46 @@
             document.getElementById('attendanceStat').style.display = mode === 'attendance' ? 'inline' : 'none';
         }
 
-        function findSeatColumn(id) {
-            // returns column index containing this seat id, or -1
-            const rowLabel = id[0];
-            const num = parseInt(id.slice(1), 10);
-            const row = ROWS.find(r => r.label === rowLabel);
-            if (!row) return -1;
-            for (let i = 0; i < COLUMNS.length; i++) {
-                const range = row[COLUMNS[i].key];
-                if (num >= range[0] && num <= range[1]) return i;
-            }
-            return -1;
-        }
-
-        function applySearch() {
-            const q = document.getElementById('search').value.trim().toLowerCase();
-            const seats = document.querySelectorAll('.seat');
-            seats.forEach(s => {
-                s.classList.remove('dim', 'spotlight');
-                if (!q) return;
-                const id = s.dataset.id;
-                const name = (roster[id] || '').toLowerCase();
-                if (name.includes(q)) {
-                    s.classList.add('spotlight');
-                } else {
-                    s.classList.add('dim');
-                }
-            });
+        function refreshAll() {
+            updateHallOrder();
+            renderTabs();
+            renderGrid();
+            updateStats();
+            updateSearchBanner();
+            updateLockUI();
         }
 
         document.getElementById('search').addEventListener('input', () => {
             const q = document.getElementById('search').value.trim().toLowerCase();
             if (q && matchCountForColumn(activeCol, q) === 0) {
-                // nothing in the column you're currently viewing — jump to the first column that has a match
                 const firstMatch = COLUMNS.findIndex((col, i) => matchCountForColumn(i, q) > 0);
-                if (firstMatch !== -1) {
-                    activeCol = firstMatch;
-                    refreshAll();
-                    return;
-                }
+                if (firstMatch !== -1) { activeCol = firstMatch; refreshAll(); return; }
             }
             refreshAll();
         });
 
         document.getElementById('modeRoster').addEventListener('click', () => setMode('roster'));
         document.getElementById('modeAttendance').addEventListener('click', () => setMode('attendance'));
-
         function setMode(m) {
             mode = m;
             document.getElementById('modeRoster').classList.toggle('active', m === 'roster');
             document.getElementById('modeAttendance').classList.toggle('active', m === 'attendance');
             renderGrid();
             updateStats();
+        }
+
+        document.getElementById('lockToggle').addEventListener('click', () => {
+            editUnlocked = !editUnlocked;
+            updateLockUI();
+            renderGrid();
+        });
+        function updateLockUI() {
+            const btn = document.getElementById('lockToggle');
+            btn.textContent = editUnlocked ? '🔓 Editing Unlocked' : '🔒 Editing Locked';
+            btn.classList.toggle('unlocked', editUnlocked);
+            document.getElementById('lockBanner').style.display = editUnlocked ? 'none' : 'block';
+            document.getElementById('importBtn').disabled = !editUnlocked;
+            document.getElementById('clearRoster').disabled = !editUnlocked;
         }
 
         document.getElementById('clearAttendance').addEventListener('click', async () => {
@@ -857,7 +1196,8 @@
         });
 
         document.getElementById('clearRoster').addEventListener('click', async () => {
-            if (!confirm('This will remove every student name from every seat in every column. Continue?')) return;
+            if (!editUnlocked) return;
+            if (!confirm('This will remove every student name and extra data from every seat in every column. Continue?')) return;
             roster = {};
             await saveRoster();
             refreshAll();
@@ -865,18 +1205,114 @@
 
         document.getElementById('printBtn').addEventListener('click', () => window.print());
 
+        document.getElementById('mirrorBtn').addEventListener('click', () => {
+            mirrored = !mirrored;
+            document.getElementById('mirrorBtn').classList.toggle('active', mirrored);
+            updateHallOrder();
+            renderGrid();
+        });
+
+        // --- CSV import ---
+        function parseCSV(text) {
+            const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim().length > 0);
+            return lines.map(line => {
+                const cells = [];
+                let cur = '', inQuotes = false;
+                for (let i = 0; i < line.length; i++) {
+                    const ch = line[i];
+                    if (inQuotes) {
+                        if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else inQuotes = false; }
+                        else cur += ch;
+                    } else {
+                        if (ch === '"') inQuotes = true;
+                        else if (ch === ',') { cells.push(cur); cur = ''; }
+                        else cur += ch;
+                    }
+                }
+                cells.push(cur);
+                return cells.map(c => c.trim());
+            });
+        }
+
+        document.getElementById('importBtn').addEventListener('click', () => {
+            if (!editUnlocked) return;
+            document.getElementById('csvFile').click();
+        });
+
+        document.getElementById('csvFile').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (evt) => {
+                const rows = parseCSV(evt.target.result);
+                if (rows.length === 0) { showImportSummary('The file appears to be empty.', [], []); e.target.value = ''; return; }
+
+                let nameIdx = 0, seatIdx = 1, startRow = 0;
+                const first = rows[0].map(c => c.toLowerCase());
+                const nameHeaderIdx = first.indexOf('name');
+                const seatHeaderIdx = first.indexOf('seat');
+                if (nameHeaderIdx !== -1 && seatHeaderIdx !== -1) { nameIdx = nameHeaderIdx; seatIdx = seatHeaderIdx; startRow = 1; }
+
+                let imported = 0, updated = 0;
+                const invalidSeats = [];
+                const blankRows = [];
+
+                for (let i = startRow; i < rows.length; i++) {
+                    const cells = rows[i];
+                    if (cells.length <= Math.max(nameIdx, seatIdx)) { blankRows.push(i + 1); continue; }
+                    const name = cells[nameIdx];
+                    const seat = cells[seatIdx].toUpperCase().replace(/\s+/g, '');
+                    if (!name || !seat) { blankRows.push(i + 1); continue; }
+                    if (!ALL_VALID_SEATS.has(seat)) { invalidSeats.push(seat); continue; }
+                    if (roster[seat] && roster[seat].name) updated++; else imported++;
+                    roster[seat] = { name, rollNo: (roster[seat] && roster[seat].rollNo) || '', notes: (roster[seat] && roster[seat].notes) || '' };
+                }
+
+                await saveRoster();
+                refreshAll();
+                showImportSummary(
+                    `Imported ${imported} new name${imported === 1 ? '' : 's'}${updated ? `, updated ${updated} existing seat${updated === 1 ? '' : 's'}` : ''}.`,
+                    invalidSeats, blankRows
+                );
+                e.target.value = '';
+            };
+            reader.readAsText(file);
+        });
+
+        function showImportSummary(mainMsg, invalidSeats, blankRows) {
+            const box = document.getElementById('importSummary');
+            let html = `<span class="close-x" id="importClose">✕</span><div><b>Import complete.</b> ${mainMsg}</div>`;
+            if (invalidSeats.length) html += `<div class="warn-list">Seat number${invalidSeats.length === 1 ? '' : 's'} not found in the layout: ${invalidSeats.join(', ')}</div>`;
+            if (blankRows.length) html += `<div class="warn-list">Skipped incomplete row${blankRows.length === 1 ? '' : 's'} (missing name or seat): line ${blankRows.join(', ')}</div>`;
+            box.innerHTML = html;
+            box.style.display = 'block';
+            document.getElementById('importClose').addEventListener('click', () => { box.style.display = 'none'; });
+        }
+
+        // --- JSON export ---
         document.getElementById('exportBtn').addEventListener('click', () => {
             const data = [];
             ROWS.forEach(row => {
                 COLUMNS.forEach(col => {
-                    buildRowSeatIds(row[col.key]).forEach(num => {
+                    buildRowSeatIds(row[col.key]).forEach((num, idx) => {
                         const id = row.label + num;
                         data.push({
-                            seat: id,
-                            column: col.name,
-                            row: row.label,
-                            name: roster[id] || null,
+                            seat: id, column: col.name, row: row.label, isExtra: false,
+                            colorGroup: seatColorGroup(row.label, idx + 1),
+                            name: getName(id) || null,
+                            rollNo: (roster[id] && roster[id].rollNo) || null,
+                            notes: (roster[id] && roster[id].notes) || null,
                             attendance: attendance[id] || 'not marked'
+                        });
+                    });
+                    extraSeatsForRowCol(row.label, col.key).forEach(exId => {
+                        data.push({
+                            seat: `${row.label}+${extraSeats[exId].order}`, column: col.name, row: row.label, isExtra: true,
+                            colorGroup: 'black',
+                            name: getName(exId) || null,
+                            rollNo: (roster[exId] && roster[exId].rollNo) || null,
+                            notes: (roster[exId] && roster[exId].notes) || null,
+                            attendance: attendance[exId] || 'not marked'
                         });
                     });
                 });
@@ -885,19 +1321,123 @@
             const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = `seatmap-${exportObj.date}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            a.href = url; a.download = `seatmap-${exportObj.date}.json`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
             URL.revokeObjectURL(url);
         });
 
-        document.getElementById('mirrorBtn').addEventListener('click', () => {
-            mirrored = !mirrored;
-            document.getElementById('mirrorBtn').classList.toggle('active', mirrored);
-            updateHallOrder();
-            renderGrid();
+        // --- Seat detail / edit modal ---
+        function getGroupForId(id) {
+            if (extraSeats[id]) return 'black';
+            const rowLabel = id[0];
+            const colKey = COLUMNS[activeCol].key;
+            const row = ROWS.find(r => r.label === rowLabel);
+            if (!row) return 'yellow';
+            const seatIds = buildRowSeatIds(row[colKey]);
+            const num = parseInt(id.slice(1), 10);
+            const position = seatIds.indexOf(num) + 1;
+            return seatColorGroup(rowLabel, position);
+        }
+
+        function openSeatModal(id) {
+            const isExtra = !!extraSeats[id];
+            const group = getGroupForId(id);
+            const colName = COLUMNS[activeCol].name;
+            const label = isExtra ? `${extraSeats[id].row}+${extraSeats[id].order} (extra seat)` : id;
+            const entry = roster[id] || { name: '', rollNo: '', notes: '' };
+            const overlay = document.getElementById('modalOverlay');
+            const card = document.getElementById('modalCard');
+
+            const valueOrEmpty = (v) => v ? escapeHtml(v) : '<span class="empty">—</span>';
+            const dotHtml = `<span class="modal-dot" style="background:${GRP_COLORS[group]}"></span>`;
+            const nameHtml = entry.name
+                ? `<div class="modal-header-name">${escapeHtml(entry.name)}</div>`
+                : `<div class="modal-header-name empty">Unassigned</div>`;
+
+            if (!editUnlocked) {
+                card.innerHTML = `
+      <div class="modal-header grp-${group}">
+        <span class="modal-close" id="modalCloseBtn">✕</span>
+        <div class="modal-header-left">
+          <h3>${dotHtml}${label}</h3>
+          <div class="modal-sub">${colName}</div>
+        </div>
+        ${nameHtml}
+      </div>
+      <div class="modal-body">
+        <div class="modal-field"><label>Name</label><div class="value ${entry.name ? '' : 'empty'}" style="text-transform:capitalize">${valueOrEmpty(entry.name)}</div></div>
+        <div class="modal-field"><label>Roll No</label><div class="value ${entry.rollNo ? '' : 'empty'}">${valueOrEmpty(entry.rollNo)}</div></div>
+        <div class="modal-field"><label>Notes</label><div class="value ${entry.notes ? '' : 'empty'}">${valueOrEmpty(entry.notes)}</div></div>
+        <div class="modal-actions"><button class="btn active" id="modalCloseBtn2">Close</button></div>
+      </div>
+    `;
+            } else {
+                card.innerHTML = `
+      <div class="modal-header grp-${group}">
+        <span class="modal-close" id="modalCloseBtn">✕</span>
+        <div class="modal-header-left">
+          <h3>${dotHtml}${label}</h3>
+          <div class="modal-sub">${colName} — editing</div>
+        </div>
+        ${nameHtml}
+      </div>
+      <div class="modal-body">
+        <div class="modal-field"><label>Name</label><input type="text" id="fldName" maxlength="40" value="${entry.name.replace(/"/g, '&quot;')}" placeholder="Student name"></div>
+        <div class="modal-field"><label>Roll No</label><input type="text" id="fldRoll" maxlength="30" value="${entry.rollNo.replace(/"/g, '&quot;')}" placeholder="e.g. 21B1234"></div>
+        <div class="modal-field"><label>Notes</label><textarea id="fldNotes" maxlength="200" placeholder="Anything else worth remembering">${escapeHtml(entry.notes)}</textarea></div>
+        <div class="modal-actions">
+          ${isExtra ? '<button class="btn danger" id="modalRemoveBtn">Remove Seat</button>' : ''}
+          <button class="btn" id="modalCancelBtn">Cancel</button>
+          <button class="btn active" id="modalSaveBtn">Save</button>
+        </div>
+      </div>
+    `;
+            }
+
+            overlay.classList.add('open');
+
+            document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+            const closeBtn2 = document.getElementById('modalCloseBtn2');
+            if (closeBtn2) closeBtn2.addEventListener('click', closeModal);
+            const cancelBtn = document.getElementById('modalCancelBtn');
+            if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+
+            const saveBtn = document.getElementById('modalSaveBtn');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', async () => {
+                    const name = document.getElementById('fldName').value.trim();
+                    const rollNo = document.getElementById('fldRoll').value.trim();
+                    const notes = document.getElementById('fldNotes').value.trim();
+                    if (name || rollNo || notes) roster[id] = { name, rollNo, notes };
+                    else delete roster[id];
+                    await saveRoster();
+                    closeModal();
+                    refreshAll();
+                });
+            }
+
+            const removeBtn = document.getElementById('modalRemoveBtn');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', async () => {
+                    if (!confirm('Remove this extra seat entirely?')) return;
+                    delete extraSeats[id];
+                    delete roster[id];
+                    delete attendance[id];
+                    await Promise.all([saveExtraSeats(), saveRoster(), saveAttendance()]);
+                    closeModal();
+                    refreshAll();
+                });
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.remove('open');
+        }
+        document.getElementById('modalOverlay').addEventListener('click', (e) => {
+            if (e.target.id === 'modalOverlay') closeModal();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
         });
 
         (async function init() {
