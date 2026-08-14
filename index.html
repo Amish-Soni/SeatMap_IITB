@@ -392,6 +392,11 @@
             margin-right: 2px;
         }
 
+        .row-label-right {
+            margin-right: 0;
+            margin-left: 2px;
+        }
+
         .seat-group {
             display: flex;
             gap: 6px;
@@ -522,6 +527,44 @@
             height: 8px;
             border-radius: 50%;
             box-shadow: 0 0 0 1px rgba(12, 27, 48, 0.5);
+        }
+
+        .seat.dnc {
+            filter: grayscale(0.6) brightness(0.8);
+        }
+
+        .seat .dnc-cross {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #000;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+        }
+
+        .modal-field .value.dnc-yes {
+            color: var(--absent);
+            font-weight: 700;
+        }
+
+        .modal-field .value.dnc-no {
+            color: var(--present);
+        }
+
+        .modal-field .dnc-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.88rem;
+            color: var(--chalk);
+        }
+
+        .modal-field .dnc-toggle input {
+            width: 16px;
+            height: 16px;
         }
 
         .add-seat-btn {
@@ -764,6 +807,10 @@
             color: var(--chalk-dim);
         }
 
+        .print-only {
+            display: none;
+        }
+
         @media print {
             body {
                 background: white;
@@ -776,8 +823,19 @@
             .legend,
             .tabs,
             .lock-banner,
-            .add-seat-btn {
-                display: none;
+            .add-seat-btn,
+            .search-banner,
+            .import-summary,
+            #podiumBlock,
+            header {
+                display: none !important;
+            }
+
+            .print-only {
+                display: block;
+                text-align: center;
+                font-family: 'Space Grotesk', sans-serif;
+                margin: 0 0 14px;
             }
 
             .hall {
@@ -798,6 +856,15 @@
 
             .seat.filled {
                 background: #f0e2cf;
+            }
+
+            .seat .seat-num,
+            .seat .seat-name {
+                color: #000;
+            }
+
+            .row-label {
+                color: #000;
             }
         }
 
@@ -856,6 +923,7 @@
         <div class="lock-banner" id="lockBanner">🔒 Editing is locked — seats open a read-only info card. Click
             <b>Editing Locked</b> above to make changes.
         </div>
+        <h2 id="printHeading" class="print-only"></h2>
 
         <div class="hall" id="hall">
             <div id="podiumBlock">
@@ -906,9 +974,9 @@
             { label: 'I', c1: [11, 19], c2: [21, 28], c3: [31, 39] },
         ];
         const COLUMNS = [
-            { key: 'c1', name: 'Column 1', range: 'Seats 11–19' },
-            { key: 'c2', name: 'Column 2', range: 'Seats 21–28' },
-            { key: 'c3', name: 'Column 3', range: 'Seats 31–39' },
+            { key: 'c1', name: 'LEFT BLOCK', range: 'Seats 11–19' },
+            { key: 'c2', name: 'MIDDLE BLOCK', range: 'Seats 21–28' },
+            { key: 'c3', name: 'RIGHT BLOCK', range: 'Seats 31–39' },
         ];
 
         const todayKey = 'attendance-' + new Date().toISOString().slice(0, 10);
@@ -943,7 +1011,7 @@
         });
 
         function getName(id) { return (roster[id] && roster[id].name) || ''; }
-        function hasEntry(id) { return !!(roster[id] && (roster[id].name || roster[id].rollNo || roster[id].notes)); }
+        function hasEntry(id) { return !!(roster[id] && (roster[id].name || roster[id].rollNo || roster[id].notes || roster[id].doNotCall)); }
 
         // --- storage (works inside Claude's preview sandbox, or falls back to
         // localStorage when this file is opened directly in a browser) ---
@@ -996,10 +1064,12 @@
             if (filled) div.classList.add('filled');
             const status = attendance[id];
             if (mode === 'attendance' && status) div.classList.add(status);
+            const isDnc = !!(roster[id] && roster[id].doNotCall);
+            if (isDnc) div.classList.add('dnc');
 
             const label = isExtra ? `${rowLabel}+${order}` : id;
             const name = getName(id);
-            div.innerHTML = `<span class="grp-dot" style="background:${GRP_COLORS[group]}"></span><span class="seat-num mono-code">${label}</span><span class="seat-name">${name ? escapeHtml(name) : '—'}</span>`;
+            div.innerHTML = `<span class="grp-dot" style="background:${GRP_COLORS[group]}"></span><span class="seat-num mono-code">${label}</span><span class="seat-name">${name ? escapeHtml(name) : '—'}</span>${isDnc ? '<span class="dnc-cross">✕</span>' : ''}`;
             div.addEventListener('click', () => onSeatClick(id));
             return div;
         }
@@ -1060,6 +1130,12 @@
                     group.appendChild(addSeatBtn(row.label, colKey));
                 }
                 rowDiv.appendChild(group);
+
+                const labelRight = document.createElement('div');
+                labelRight.className = 'row-label row-label-right';
+                labelRight.textContent = row.label;
+                rowDiv.appendChild(labelRight);
+
                 grid.appendChild(rowDiv);
             });
             applySearch();
@@ -1152,6 +1228,7 @@
             updateStats();
             updateSearchBanner();
             updateLockUI();
+            document.getElementById('printHeading').textContent = COLUMNS[activeCol].name + ' — Seat Mapping';
         }
 
         document.getElementById('search').addEventListener('input', () => {
@@ -1247,11 +1324,15 @@
                 const rows = parseCSV(evt.target.result);
                 if (rows.length === 0) { showImportSummary('The file appears to be empty.', [], []); e.target.value = ''; return; }
 
-                let nameIdx = 0, seatIdx = 1, startRow = 0;
+                let nameIdx = 0, seatIdx = 1, rollIdx = -1, startRow = 0;
                 const first = rows[0].map(c => c.toLowerCase());
                 const nameHeaderIdx = first.indexOf('name');
                 const seatHeaderIdx = first.indexOf('seat');
-                if (nameHeaderIdx !== -1 && seatHeaderIdx !== -1) { nameIdx = nameHeaderIdx; seatIdx = seatHeaderIdx; startRow = 1; }
+                const rollHeaderIdx = first.findIndex(c => ['roll', 'rollno', 'roll no', 'roll number', 'roll_no'].includes(c));
+                if (nameHeaderIdx !== -1 && seatHeaderIdx !== -1) {
+                    nameIdx = nameHeaderIdx; seatIdx = seatHeaderIdx; startRow = 1;
+                    if (rollHeaderIdx !== -1) rollIdx = rollHeaderIdx;
+                }
 
                 let imported = 0, updated = 0;
                 const invalidSeats = [];
@@ -1262,10 +1343,16 @@
                     if (cells.length <= Math.max(nameIdx, seatIdx)) { blankRows.push(i + 1); continue; }
                     const name = cells[nameIdx];
                     const seat = cells[seatIdx].toUpperCase().replace(/\s+/g, '');
+                    const rollNo = rollIdx !== -1 && cells[rollIdx] ? cells[rollIdx].trim() : '';
                     if (!name || !seat) { blankRows.push(i + 1); continue; }
                     if (!ALL_VALID_SEATS.has(seat)) { invalidSeats.push(seat); continue; }
                     if (roster[seat] && roster[seat].name) updated++; else imported++;
-                    roster[seat] = { name, rollNo: (roster[seat] && roster[seat].rollNo) || '', notes: (roster[seat] && roster[seat].notes) || '' };
+                    roster[seat] = {
+                        name,
+                        rollNo: rollNo || (roster[seat] && roster[seat].rollNo) || '',
+                        notes: (roster[seat] && roster[seat].notes) || '',
+                        doNotCall: !!(roster[seat] && roster[seat].doNotCall)
+                    };
                 }
 
                 await saveRoster();
@@ -1302,6 +1389,7 @@
                             name: getName(id) || null,
                             rollNo: (roster[id] && roster[id].rollNo) || null,
                             notes: (roster[id] && roster[id].notes) || null,
+                            doNotCall: !!(roster[id] && roster[id].doNotCall),
                             attendance: attendance[id] || 'not marked'
                         });
                     });
@@ -1312,6 +1400,7 @@
                             name: getName(exId) || null,
                             rollNo: (roster[exId] && roster[exId].rollNo) || null,
                             notes: (roster[exId] && roster[exId].notes) || null,
+                            doNotCall: !!(roster[exId] && roster[exId].doNotCall),
                             attendance: attendance[exId] || 'not marked'
                         });
                     });
@@ -1353,6 +1442,9 @@
             const nameHtml = entry.name
                 ? `<div class="modal-header-name">${escapeHtml(entry.name)}</div>`
                 : `<div class="modal-header-name empty">Unassigned</div>`;
+            const dncViewHtml = entry.doNotCall
+                ? `<div class="modal-field"><label>Calling preference</label><div class="value dnc-yes">🚫 Do not call on this student</div></div>`
+                : `<div class="modal-field"><label>Calling preference</label><div class="value dnc-no">Available to call</div></div>`;
 
             if (!editUnlocked) {
                 card.innerHTML = `
@@ -1368,6 +1460,7 @@
         <div class="modal-field"><label>Name</label><div class="value ${entry.name ? '' : 'empty'}" style="text-transform:capitalize">${valueOrEmpty(entry.name)}</div></div>
         <div class="modal-field"><label>Roll No</label><div class="value ${entry.rollNo ? '' : 'empty'}">${valueOrEmpty(entry.rollNo)}</div></div>
         <div class="modal-field"><label>Notes</label><div class="value ${entry.notes ? '' : 'empty'}">${valueOrEmpty(entry.notes)}</div></div>
+        ${dncViewHtml}
         <div class="modal-actions"><button class="btn active" id="modalCloseBtn2">Close</button></div>
       </div>
     `;
@@ -1385,6 +1478,9 @@
         <div class="modal-field"><label>Name</label><input type="text" id="fldName" maxlength="40" value="${entry.name.replace(/"/g, '&quot;')}" placeholder="Student name"></div>
         <div class="modal-field"><label>Roll No</label><input type="text" id="fldRoll" maxlength="30" value="${entry.rollNo.replace(/"/g, '&quot;')}" placeholder="e.g. 21B1234"></div>
         <div class="modal-field"><label>Notes</label><textarea id="fldNotes" maxlength="200" placeholder="Anything else worth remembering">${escapeHtml(entry.notes)}</textarea></div>
+        <div class="modal-field">
+          <label class="dnc-toggle"><input type="checkbox" id="fldDnc" ${entry.doNotCall ? 'checked' : ''}> 🚫 This student prefers not to be called on</label>
+        </div>
         <div class="modal-actions">
           ${isExtra ? '<button class="btn danger" id="modalRemoveBtn">Remove Seat</button>' : ''}
           <button class="btn" id="modalCancelBtn">Cancel</button>
@@ -1408,7 +1504,8 @@
                     const name = document.getElementById('fldName').value.trim();
                     const rollNo = document.getElementById('fldRoll').value.trim();
                     const notes = document.getElementById('fldNotes').value.trim();
-                    if (name || rollNo || notes) roster[id] = { name, rollNo, notes };
+                    const doNotCall = document.getElementById('fldDnc').checked;
+                    if (name || rollNo || notes || doNotCall) roster[id] = { name, rollNo, notes, doNotCall };
                     else delete roster[id];
                     await saveRoster();
                     closeModal();
