@@ -202,7 +202,7 @@
             border-radius: 10px 10px 0 0;
             font-family: 'Space Grotesk', sans-serif;
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 1rem;
             text-align: center;
             cursor: pointer;
             border-bottom: none;
@@ -983,7 +983,7 @@
         let extraSeats = {};    // extraId -> { row, colKey, order }
         let mode = 'roster';    // 'roster' | 'attendance'
         let activeCol = 0;
-        let mirrored = false;
+        let mirrored = true;
         let editUnlocked = false;
 
         function buildRowSeatIds(range) {
@@ -1068,7 +1068,8 @@
             const label = isExtra ? `${rowLabel}+${order}` : id;
             const name = getName(id);
             const firstName = name ? name.trim().split(/\s+/)[0] : '';
-            div.innerHTML = `<span class="grp-dot" style="background:${GRP_COLORS[group]}"></span><span class="seat-num mono-code">${label}</span><span class="seat-name">${firstName ? escapeHtml(firstName) : '—'}</span>${isDnc ? '<span class="dnc-cross">✕</span>' : ''}`;
+            const dotHtml = filled ? '' : `<span class="grp-dot" style="background:${GRP_COLORS[group]}"></span>`;
+            div.innerHTML = `${dotHtml}<span class="seat-num mono-code">${label}</span><span class="seat-name">${firstName ? escapeHtml(firstName) : '—'}</span>${isDnc ? '<span class="dnc-cross">✕</span>' : ''}`;
             div.addEventListener('click', () => onSeatClick(id));
             return div;
         }
@@ -1227,6 +1228,7 @@
             updateStats();
             updateSearchBanner();
             updateLockUI();
+            document.getElementById('mirrorBtn').classList.toggle('active', mirrored);
             document.getElementById('printHeading').textContent = COLUMNS[activeCol].name + ' — Seat Mapping';
         }
 
