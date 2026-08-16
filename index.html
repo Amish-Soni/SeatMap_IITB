@@ -203,6 +203,7 @@
             font-family: 'Space Grotesk', sans-serif;
             font-weight: 600;
             font-size: 0.9rem;
+            text-align: center;
             cursor: pointer;
             border-bottom: none;
             transition: all .15s ease;
@@ -891,7 +892,6 @@
     <div class="wrap">
         <header>
             <h1>Lecture Hall Seatmap</h1>
-            <p>Click a seat to view its details. Unlock editing to make changes.</p>
         </header>
 
         <div class="controls">
@@ -899,6 +899,7 @@
             <button class="btn" id="modeRoster">📋 Roster Mode</button>
             <button class="btn" id="modeAttendance">✅ Attendance Mode</button>
             <button class="btn lock" id="lockToggle">🔒 Editing Locked</button>
+            <button class="btn active" id="randomPickBtn">🎲 Pick Random Student</button>
         </div>
         <div class="controls">
             <button class="btn" id="importBtn">⬆️ Import CSV</button>
@@ -920,9 +921,6 @@
         <div class="tabs" id="tabs"></div>
         <div class="search-banner" id="searchBanner"></div>
         <div class="import-summary" id="importSummary"></div>
-        <div class="lock-banner" id="lockBanner">🔒 Editing is locked — seats open a read-only info card. Click
-            <b>Editing Locked</b> above to make changes.
-        </div>
         <h2 id="printHeading" class="print-only"></h2>
 
         <div class="hall" id="hall">
@@ -974,9 +972,9 @@
             { label: 'I', c1: [11, 19], c2: [21, 28], c3: [31, 39] },
         ];
         const COLUMNS = [
-            { key: 'c1', name: 'LEFT BLOCK', range: 'Seats 11–19' },
-            { key: 'c2', name: 'MIDDLE BLOCK', range: 'Seats 21–28' },
-            { key: 'c3', name: 'RIGHT BLOCK', range: 'Seats 31–39' },
+            { key: 'c1', name: 'LEFT', range: 'Seats 11–19' },
+            { key: 'c2', name: 'MIDDLE', range: 'Seats 21–28' },
+            { key: 'c3', name: 'RIGHT', range: 'Seats 31–39' },
         ];
 
         const todayKey = 'attendance-' + new Date().toISOString().slice(0, 10);
@@ -1069,7 +1067,8 @@
 
             const label = isExtra ? `${rowLabel}+${order}` : id;
             const name = getName(id);
-            div.innerHTML = `<span class="grp-dot" style="background:${GRP_COLORS[group]}"></span><span class="seat-num mono-code">${label}</span><span class="seat-name">${name ? escapeHtml(name) : '—'}</span>${isDnc ? '<span class="dnc-cross">✕</span>' : ''}`;
+            const firstName = name ? name.trim().split(/\s+/)[0] : '';
+            div.innerHTML = `<span class="grp-dot" style="background:${GRP_COLORS[group]}"></span><span class="seat-num mono-code">${label}</span><span class="seat-name">${firstName ? escapeHtml(firstName) : '—'}</span>${isDnc ? '<span class="dnc-cross">✕</span>' : ''}`;
             div.addEventListener('click', () => onSeatClick(id));
             return div;
         }
@@ -1415,6 +1414,86 @@
             URL.revokeObjectURL(url);
         });
 
+        // --- Random student picker ---
+        function getAllEligibleSeatIds() {
+            const eligible = [];
+            COLUMNS.forEach((col, colIndex) => {
+                ROWS.forEach(row => {
+                    buildRowSeatIds(row[col.key]).forEach(num => {
+                        const id = row.label + num;
+                        const entry = roster[id];
+                        if (entry && entry.name && !entry.doNotCall) eligible.push({ id, colIndex });
+                    });
+                    extraSeatsForRowCol(row.label, col.key).forEach(exId => {
+                        const entry = roster[exId];
+                        if (entry && entry.name && !entry.doNotCall) eligible.push({ id: exId, colIndex });
+                    });
+                });
+            });
+            return eligible;
+        }
+
+        function openRandomPickModal() {
+            const eligible = getAllEligibleSeatIds();
+            const overlay = document.getElementById('modalOverlay');
+            const card = document.getElementById('modalCard');
+
+            if (eligible.length === 0) {
+                card.innerHTML = `
+      <div class="modal-header grp-black">
+        <span class="modal-close" id="modalCloseBtn">✕</span>
+        <div class="modal-header-left"><h3>No eligible students</h3></div>
+      </div>
+      <div class="modal-body">
+        <p style="color:var(--chalk-dim);font-size:0.88rem;">There are no named seats available to pick from (or everyone eligible has "do not call" set).</p>
+        <div class="modal-actions"><button class="btn active" id="modalCloseBtn2">Close</button></div>
+      </div>`;
+                overlay.classList.add('open');
+                document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+                document.getElementById('modalCloseBtn2').addEventListener('click', closeModal);
+                return;
+            }
+
+            const pick = eligible[Math.floor(Math.random() * eligible.length)];
+            const id = pick.id;
+            const isExtra = !!extraSeats[id];
+            const entry = roster[id];
+            const colName = COLUMNS[pick.colIndex].name;
+            const seatLabel = isExtra ? `${extraSeats[id].row}+${extraSeats[id].order} (extra seat)` : id;
+            const group = isExtra ? 'black' : (() => {
+                const rowLabel = id[0];
+                const seatIds = buildRowSeatIds(ROWS.find(r => r.label === rowLabel)[COLUMNS[pick.colIndex].key]);
+                const num = parseInt(id.slice(1), 10);
+                return seatColorGroup(rowLabel, seatIds.indexOf(num) + 1);
+            })();
+            const dotHtml = `<span class="modal-dot" style="background:${GRP_COLORS[group]}"></span>`;
+            const firstName = entry.name.trim().split(/\s+/)[0];
+
+            card.innerHTML = `
+      <div class="modal-header grp-${group}">
+        <span class="modal-close" id="modalCloseBtn">✕</span>
+        <div class="modal-header-left">
+          <h3>${dotHtml}🎲 ${escapeHtml(firstName)}</h3>
+          <div class="modal-sub">${colName}</div>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="modal-field"><label>Name</label><div class="value" style="text-transform:capitalize;font-size:1.15rem;font-weight:700;">${escapeHtml(entry.name)}</div></div>
+        <div class="modal-field"><label>Roll No</label><div class="value ${entry.rollNo ? '' : 'empty'}">${entry.rollNo ? escapeHtml(entry.rollNo) : '<span class="empty">—</span>'}</div></div>
+        <div class="modal-field"><label>Seat</label><div class="value mono-code">${seatLabel}</div></div>
+        <div class="modal-actions">
+          <button class="btn" id="modalPickAgainBtn">🎲 Pick Another</button>
+          <button class="btn active" id="modalCloseBtn2">Close</button>
+        </div>
+      </div>`;
+            overlay.classList.add('open');
+            document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+            document.getElementById('modalCloseBtn2').addEventListener('click', closeModal);
+            document.getElementById('modalPickAgainBtn').addEventListener('click', openRandomPickModal);
+        }
+
+        document.getElementById('randomPickBtn').addEventListener('click', openRandomPickModal);
+
         // --- Seat detail / edit modal ---
         function getGroupForId(id) {
             if (extraSeats[id]) return 'black';
@@ -1444,7 +1523,7 @@
                 : `<div class="modal-header-name empty">Unassigned</div>`;
             const dncViewHtml = entry.doNotCall
                 ? `<div class="modal-field"><label>Calling preference</label><div class="value dnc-yes">🚫 Do not call on this student</div></div>`
-                : `<div class="modal-field"><label>Calling preference</label><div class="value dnc-no">Available to call</div></div>`;
+                : '';
 
             if (!editUnlocked) {
                 card.innerHTML = `
