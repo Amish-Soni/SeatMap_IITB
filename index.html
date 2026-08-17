@@ -464,17 +464,17 @@
 
         .seat .seat-num {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
+            font-size: 1rem;
             color: var(--chalk-dim);
             line-height: 1;
         }
 
         .seat.filled .seat-num {
-            color: rgba(12, 27, 48, 0.65);
+            color: #000
         }
 
         .seat .seat-name {
-            font-size: 0.9rem;
+            font-size: 1rem;
             font-weight: 600;
             color: var(--chalk);
             line-height: 1.15;
@@ -921,6 +921,7 @@
         <div class="tabs" id="tabs"></div>
         <div class="search-banner" id="searchBanner"></div>
         <div class="import-summary" id="importSummary"></div>
+        <div class="import-summary" id="csvLoadBanner"></div>
         <h2 id="printHeading" class="print-only"></h2>
 
         <div class="hall" id="hall">
@@ -950,7 +951,7 @@
             </div>
         </div>
 
-        <footer>Names and attendance are saved in this browser (this file, this device) and stay put across refreshes.
+        <footer>Attendance is saved in this browser (this file, this device) and stay put across refreshes.
             Clearing your browser's site data for this file will reset it. Attendance resets fresh each day
             automatically.</footer>
     </div>
@@ -1069,7 +1070,7 @@
             const name = getName(id);
             const firstName = name ? name.trim().split(/\s+/)[0] : '';
             const dotHtml = filled ? '' : `<span class="grp-dot" style="background:${GRP_COLORS[group]}"></span>`;
-            div.innerHTML = `${dotHtml}<span class="seat-num mono-code">${label}</span><span class="seat-name">${firstName ? escapeHtml(firstName) : '—'}</span>${isDnc ? '<span class="dnc-cross">✕</span>' : ''}`;
+            div.innerHTML = `${dotHtml}<span class="seat-name">${firstName ? escapeHtml(firstName) : '—'}</span><span class="seat-num mono-code">${label}</span>${isDnc ? '<span class="dnc-cross">✕</span>' : ''}`;
             div.addEventListener('click', () => onSeatClick(id));
             return div;
         }
@@ -1260,7 +1261,8 @@
             const btn = document.getElementById('lockToggle');
             btn.textContent = editUnlocked ? '🔓 Editing Unlocked' : '🔒 Editing Locked';
             btn.classList.toggle('unlocked', editUnlocked);
-            document.getElementById('lockBanner').style.display = editUnlocked ? 'none' : 'block';
+            const lockBannerEl = document.getElementById('lockBanner');
+            if (lockBannerEl) lockBannerEl.style.display = editUnlocked ? 'none' : 'block';
             document.getElementById('importBtn').disabled = !editUnlocked;
             document.getElementById('clearRoster').disabled = !editUnlocked;
         }
@@ -1289,6 +1291,58 @@
             updateHallOrder();
             renderGrid();
         });
+
+        // --- Shared static roster (students.csv, same folder as this file) ---
+        // Columns supported (header names, case-insensitive): Name, Seat, Roll/RollNo/Roll No/Roll Number,
+        // DoNotCall/Do Not Call/DNC (yes/true/1 = do not call), Notes. Only Name + Seat are required.
+        async function loadStaticRosterFromCsv() {
+            try {
+                const resp = await fetch('./students.csv', { cache: 'no-store' });
+                if (!resp.ok) return { ok: false, reason: 'not-found', roster: {} };
+                const text = await resp.text();
+                const rows = parseCSV(text);
+                if (rows.length === 0) return { ok: false, reason: 'empty', roster: {} };
+
+                const first = rows[0].map(c => c.toLowerCase());
+                const nameIdx = first.indexOf('name');
+                const seatIdx = first.indexOf('seat');
+                if (nameIdx === -1 || seatIdx === -1) return { ok: false, reason: 'no-header', roster: {} };
+                const rollIdx = first.findIndex(c => ['roll', 'rollno', 'roll no', 'roll number', 'roll_no'].includes(c));
+                const dncIdx = first.findIndex(c => ['donotcall', 'do not call', 'dnc'].includes(c));
+                const notesIdx = first.indexOf('notes');
+
+                const result = {};
+                let count = 0;
+                for (let i = 1; i < rows.length; i++) {
+                    const cells = rows[i];
+                    if (cells.length <= Math.max(nameIdx, seatIdx)) continue;
+                    const name = cells[nameIdx];
+                    const seat = cells[seatIdx].toUpperCase().replace(/\s+/g, '');
+                    if (!name || !seat || !ALL_VALID_SEATS.has(seat)) continue;
+                    const rollNo = rollIdx !== -1 && cells[rollIdx] ? cells[rollIdx].trim() : '';
+                    const notes = notesIdx !== -1 && cells[notesIdx] ? cells[notesIdx].trim() : '';
+                    const dncRaw = dncIdx !== -1 && cells[dncIdx] ? cells[dncIdx].trim().toLowerCase() : '';
+                    const doNotCall = ['yes', 'true', '1', 'y'].includes(dncRaw);
+                    result[seat] = { name, rollNo, notes, doNotCall };
+                    count++;
+                }
+                return { ok: true, roster: result, count };
+            } catch (e) {
+                return { ok: false, reason: 'fetch-failed', roster: {} };
+            }
+        }
+
+        function showCsvLoadBanner(result) {
+            if (result.ok) return;
+            const box = document.getElementById('csvLoadBanner');
+            if (result.reason === 'fetch-failed' || result.reason === 'not-found') {
+                box.innerHTML = `<span class="close-x" id="csvBannerClose">✕</span><div><b>No shared roster loaded.</b> Couldn't load students.csv from this folder (it may be missing, or the page was opened directly as a file rather than through a web server — try running a local server, e.g. <span class="mono-code">python -m http.server</span>, and open the page via http://localhost). Using locally saved data only.</div>`;
+            } else {
+                box.innerHTML = `<span class="close-x" id="csvBannerClose">✕</span><div><b>students.csv found but not used.</b> Make sure it has a header row with at least <span class="mono-code">Name</span> and <span class="mono-code">Seat</span> columns.</div>`;
+            }
+            box.style.display = 'block';
+            document.getElementById('csvBannerClose').addEventListener('click', () => { box.style.display = 'none'; });
+        }
 
         // --- CSV import ---
         function parseCSV(text) {
@@ -1475,7 +1529,7 @@
       <div class="modal-header grp-${group}">
         <span class="modal-close" id="modalCloseBtn">✕</span>
         <div class="modal-header-left">
-          <h3>${dotHtml}🎲 ${escapeHtml(firstName)}</h3>
+          <h3>${dotHtml}${escapeHtml(firstName)}</h3>
           <div class="modal-sub">${colName}</div>
         </div>
       </div>
@@ -1620,7 +1674,11 @@
 
         (async function init() {
             await loadData();
+            const localRoster = roster;
+            const csvResult = await loadStaticRosterFromCsv();
+            roster = { ...csvResult.roster, ...localRoster };
             refreshAll();
+            showCsvLoadBanner(csvResult);
         })();
     </script>
 </body>
