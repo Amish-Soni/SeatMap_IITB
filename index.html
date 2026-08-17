@@ -895,7 +895,7 @@
         </header>
 
         <div class="controls">
-            <input type="text" id="search" placeholder="Search student name…" autocomplete="off">
+            <input type="text" id="search" placeholder="Search name or roll no…" autocomplete="off">
             <button class="btn" id="modeRoster">📋 Roster Mode</button>
             <button class="btn" id="modeAttendance">✅ Attendance Mode</button>
             <button class="btn lock" id="lockToggle">🔒 Editing Locked</button>
@@ -1010,6 +1010,10 @@
         });
 
         function getName(id) { return (roster[id] && roster[id].name) || ''; }
+        function getRollNo(id) { return (roster[id] && roster[id].rollNo) || ''; }
+        function seatMatchesQuery(id, query) {
+            return getName(id).toLowerCase().includes(query) || getRollNo(id).toLowerCase().includes(query);
+        }
         function hasEntry(id) { return !!(roster[id] && (roster[id].name || roster[id].rollNo || roster[id].notes || roster[id].doNotCall)); }
 
         // --- storage (works inside Claude's preview sandbox, or falls back to
@@ -1166,7 +1170,7 @@
 
         function matchCountForColumn(colIndex, query) {
             if (!query) return 0;
-            return allSeatIdsInColumn(colIndex).filter(id => getName(id).toLowerCase().includes(query)).length;
+            return allSeatIdsInColumn(colIndex).filter(id => seatMatchesQuery(id, query)).length;
         }
 
         function renderTabs() {
@@ -1206,8 +1210,7 @@
             document.querySelectorAll('.seat').forEach(s => {
                 s.classList.remove('dim', 'spotlight');
                 if (!q) return;
-                const name = getName(s.dataset.id).toLowerCase();
-                if (name.includes(q)) s.classList.add('spotlight');
+                if (seatMatchesQuery(s.dataset.id, q)) s.classList.add('spotlight');
                 else s.classList.add('dim');
             });
         }
