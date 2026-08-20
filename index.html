@@ -899,7 +899,7 @@
             <button class="btn" id="modeRoster">📋 Roster Mode</button>
             <button class="btn" id="modeAttendance">✅ Attendance Mode</button>
             <button class="btn lock" id="lockToggle">🔒 Editing Locked</button>
-            <button class="btn active" id="randomPickBtn">🎲 Pick Random Student</button>
+            <button class="btn active" id="randomPickBtn">🎲 Surprise</button>
         </div>
         <div class="controls">
             <button class="btn" id="importBtn">⬆️ Import CSV</button>
@@ -1541,7 +1541,7 @@
         <div class="modal-field"><label>Roll No</label><div class="value ${entry.rollNo ? '' : 'empty'}">${entry.rollNo ? escapeHtml(entry.rollNo) : '<span class="empty">—</span>'}</div></div>
         <div class="modal-field"><label>Seat</label><div class="value mono-code">${seatLabel}</div></div>
         <div class="modal-actions">
-          <button class="btn" id="modalPickAgainBtn">🎲 Pick Another</button>
+          <button class="btn" id="modalPickAgainBtn">🎲 Surprise Again</button>
           <button class="btn active" id="modalCloseBtn2">Close</button>
         </div>
       </div>`;
@@ -1581,7 +1581,7 @@
                 ? `<div class="modal-header-name">${escapeHtml(entry.name)}</div>`
                 : `<div class="modal-header-name empty">Unassigned</div>`;
             const dncViewHtml = entry.doNotCall
-                ? `<div class="modal-field"><label>Calling preference</label><div class="value dnc-yes">🚫 Do not call on this student</div></div>`
+                ? `<div class="modal-field"><label>Calling preference</label><div class="value dnc-yes">🚫 Shouldn't be called</div></div>`
                 : '';
 
             if (!editUnlocked) {
@@ -1617,7 +1617,7 @@
         <div class="modal-field"><label>Roll No</label><input type="text" id="fldRoll" maxlength="30" value="${entry.rollNo.replace(/"/g, '&quot;')}" placeholder="e.g. 21B1234"></div>
         <div class="modal-field"><label>Notes</label><textarea id="fldNotes" maxlength="200" placeholder="Anything else worth remembering">${escapeHtml(entry.notes)}</textarea></div>
         <div class="modal-field">
-          <label class="dnc-toggle"><input type="checkbox" id="fldDnc" ${entry.doNotCall ? 'checked' : ''}> 🚫 This student prefers not to be called on</label>
+          <label class="dnc-toggle"><input type="checkbox" id="fldDnc" ${entry.doNotCall ? 'checked' : ''}> 🚫 Prefers not to be called</label>
         </div>
         <div class="modal-actions">
           ${isExtra ? '<button class="btn danger" id="modalRemoveBtn">Remove Seat</button>' : ''}
