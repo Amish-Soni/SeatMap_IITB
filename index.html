@@ -907,6 +907,9 @@
             <button class="btn" id="exportBtn">⬇️ Export JSON</button>
             <button class="btn" id="mirrorBtn">🔄 Mirror Layout</button>
             <button class="btn" id="printBtn">🖨️ Print</button>
+            <button class="btn" id="swapLRBtn">↔️ Swap Left/Right Block</button>
+            <button class="btn" id="shift8Btn">🔁 Shift 8-seat Rows (A→I)</button>
+            <button class="btn" id="shift7Btn">🔁 Shift 7-seat Rows (B→H)</button>
             <button class="btn" id="clearAttendance">Reset Today's Attendance</button>
             <button class="btn danger" id="clearRoster">Clear All Names</button>
         </div>
@@ -1233,7 +1236,7 @@
             updateSearchBanner();
             updateLockUI();
             document.getElementById('mirrorBtn').classList.toggle('active', mirrored);
-            document.getElementById('printHeading').textContent = COLUMNS[activeCol].name + ' — Seat Mapping';
+            document.getElementById('printHeading').textContent = COLUMNS[activeCol].name + ' Block';
         }
 
         document.getElementById('search').addEventListener('input', () => {
@@ -1268,6 +1271,9 @@
             if (lockBannerEl) lockBannerEl.style.display = editUnlocked ? 'none' : 'block';
             document.getElementById('importBtn').disabled = !editUnlocked;
             document.getElementById('clearRoster').disabled = !editUnlocked;
+            document.getElementById('swapLRBtn').disabled = !editUnlocked;
+            document.getElementById('shift8Btn').disabled = !editUnlocked;
+            document.getElementById('shift7Btn').disabled = !editUnlocked;
         }
 
         document.getElementById('clearAttendance').addEventListener('click', async () => {
@@ -1293,6 +1299,104 @@
             document.getElementById('mirrorBtn').classList.toggle('active', mirrored);
             updateHallOrder();
             renderGrid();
+        });
+
+        // --- Seat data helpers for block-swap / cyclic-shift operations ---
+        // Swaps roster + attendance entries between two seat ids in-place.
+        function swapSeatData(idA, idB) {
+            const rA = roster[idA], rB = roster[idB];
+            if (rB) roster[idA] = rB; else delete roster[idA];
+            if (rA) roster[idB] = rA; else delete roster[idB];
+
+            const aA = attendance[idA], aB = attendance[idB];
+            if (aB) attendance[idA] = aB; else delete attendance[idA];
+            if (aA) attendance[idB] = aA; else delete attendance[idB];
+        }
+
+        // Feature 1: swap the LEFT (c1) and RIGHT (c3) blocks, seat-for-seat,
+        // within every row. e.g. A11<->A31, A12<->A32, ... Extra seats attached
+        // to c1/c3 in a row swap sides along with the block.
+        function swapLeftRightBlocks() {
+            ROWS.forEach(row => {
+                const leftNums = buildRowSeatIds(row.c1);
+                const rightNums = buildRowSeatIds(row.c3);
+                const len = Math.min(leftNums.length, rightNums.length);
+                for (let i = 0; i < len; i++) {
+                    swapSeatData(row.label + leftNums[i], row.label + rightNums[i]);
+                }
+                Object.keys(extraSeats).forEach(exId => {
+                    const ex = extraSeats[exId];
+                    if (ex.row !== row.label) return;
+                    if (ex.colKey === 'c1') ex.colKey = 'c3';
+                    else if (ex.colKey === 'c3') ex.colKey = 'c1';
+                });
+            });
+        }
+
+        // Features 2 & 3: cyclically shift the MIDDLE (c2) block's contents
+        // across a given ordered set of rows that all share the same c2 seat
+        // range. The content of rowLabels[j] becomes the old content of
+        // rowLabels[(j+1) % n] — i.e. each row's data moves "back" one step,
+        // wrapping the first row's data around to the last row.
+        function cyclicShiftMiddleRows(rowLabels) {
+            const colKey = 'c2';
+            const n = rowLabels.length;
+            const seatNums = buildRowSeatIds(ROWS.find(r => r.label === rowLabels[0])[colKey]);
+
+            const oldRoster = {}, oldAttendance = {}, oldExtras = {};
+            rowLabels.forEach(rl => {
+                oldRoster[rl] = {};
+                oldAttendance[rl] = {};
+                oldExtras[rl] = [];
+                seatNums.forEach(num => {
+                    const id = rl + num;
+                    if (roster[id]) oldRoster[rl][num] = roster[id];
+                    if (attendance[id]) oldAttendance[rl][num] = attendance[id];
+                });
+            });
+            Object.keys(extraSeats).forEach(exId => {
+                const ex = extraSeats[exId];
+                if (ex.colKey === colKey && rowLabels.includes(ex.row)) oldExtras[ex.row].push(exId);
+            });
+
+            rowLabels.forEach(rl => seatNums.forEach(num => {
+                delete roster[rl + num];
+                delete attendance[rl + num];
+            }));
+
+            rowLabels.forEach((rl, j) => {
+                const srcRow = rowLabels[(j + 1) % n];
+                seatNums.forEach(num => {
+                    const newId = rl + num;
+                    if (oldRoster[srcRow][num]) roster[newId] = oldRoster[srcRow][num];
+                    if (oldAttendance[srcRow][num]) attendance[newId] = oldAttendance[srcRow][num];
+                });
+                oldExtras[srcRow].forEach(exId => { extraSeats[exId].row = rl; });
+            });
+        }
+
+        document.getElementById('swapLRBtn').addEventListener('click', async () => {
+            if (!editUnlocked) return;
+            if (!confirm('Swap the Left and Right blocks in every row? Names, roll numbers and today\'s attendance will move seat-for-seat (e.g. A11 <-> A31). This cannot be undone automatically.')) return;
+            swapLeftRightBlocks();
+            await Promise.all([saveRoster(), saveAttendance(), saveExtraSeats()]);
+            refreshAll();
+        });
+
+        document.getElementById('shift8Btn').addEventListener('click', async () => {
+            if (!editUnlocked) return;
+            if (!confirm('Cyclically shift the 8-seat middle-block rows (A, C, E, G, I)? Row A\'s data moves to I, C moves to A, E moves to C, G moves to E, and I moves to G. This cannot be undone automatically.')) return;
+            cyclicShiftMiddleRows(['A', 'C', 'E', 'G', 'I']);
+            await Promise.all([saveRoster(), saveAttendance(), saveExtraSeats()]);
+            refreshAll();
+        });
+
+        document.getElementById('shift7Btn').addEventListener('click', async () => {
+            if (!editUnlocked) return;
+            if (!confirm('Cyclically shift the 7-seat middle-block rows (B, D, F, H)? Row B\'s data moves to H, D moves to B, F moves to D, and H moves to F. This cannot be undone automatically.')) return;
+            cyclicShiftMiddleRows(['B', 'D', 'F', 'H']);
+            await Promise.all([saveRoster(), saveAttendance(), saveExtraSeats()]);
+            refreshAll();
         });
 
         // --- Shared static roster (students.csv, same folder as this file) ---
