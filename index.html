@@ -433,6 +433,22 @@
             border-top-color: var(--brass-soft);
         }
 
+        .seat.shifted {
+            outline: 2px solid #E8823C;
+            outline-offset: 1px;
+            z-index: 2;
+        }
+
+        .seat .shift-badge {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            font-size: 0.6rem;
+            line-height: 1;
+            color: #E8823C;
+            font-weight: 700;
+        }
+
         .seat.filled.grp-yellow {
             background: linear-gradient(180deg, var(--grp-yellow-light), var(--grp-yellow-light-dark));
             border-color: var(--grp-yellow-light-dark);
@@ -910,6 +926,8 @@
             <button class="btn" id="swapLRBtn">↔️ Swap Left/Right Block</button>
             <button class="btn" id="shift8Btn">🔁 Shift 8-seat Rows (A→I)</button>
             <button class="btn" id="shift7Btn">🔁 Shift 7-seat Rows (B→H)</button>
+            <button class="btn" id="highlightBtn">🔍 Highlight Changes</button>
+            <button class="btn" id="setBaselineBtn">📍 Set Current as Baseline</button>
             <button class="btn" id="clearAttendance">Reset Today's Attendance</button>
             <button class="btn danger" id="clearRoster">Clear All Names</button>
         </div>
@@ -982,13 +1000,16 @@
         ];
 
         const todayKey = 'attendance-' + new Date().toISOString().slice(0, 10);
-        let roster = {};        // seatId -> { name, rollNo, notes }
+        let roster = {};        // seatId -> { name, rollNo, notes } — the EFFECTIVE roster used everywhere
         let attendance = {};    // seatId -> 'present' | 'absent'
         let extraSeats = {};    // extraId -> { row, colKey, order }
         let mode = 'roster';    // 'roster' | 'attendance'
         let activeCol = 0;
         let mirrored = true;
         let editUnlocked = false;
+        let csvBaseRoster = {};     // roster rows loaded fresh from students.csv this session ({} if no CSV)
+        let baselineRoster = null; // frozen "original seatmap" snapshot compared against for Highlight Changes; persists once set
+        let highlightChanges = false; // whether the Highlight Changes view is currently on (session-only)
 
         function buildRowSeatIds(range) {
             const ids = [];
@@ -1036,13 +1057,56 @@
         }
 
         async function loadData() {
-            try { const r = await storageGet('roster'); roster = r ? JSON.parse(r) : {}; } catch (e) { roster = {}; }
+            // Roster is persisted as an OVERRIDES diff against csvBaseRoster, not a full snapshot.
+            // This is what makes deletions/swaps survive a refresh: an override of `null` is an
+            // explicit tombstone ("this seat was cleared"), so a re-fetched students.csv can't
+            // silently resurrect a name that was moved or removed. Overrides may be null (tombstone)
+            // or a full entry object (added/edited/moved-in).
+            let overrides;
+            try {
+                const ov = await storageGet('rosterOverrides');
+                overrides = ov ? JSON.parse(ov) : null;
+            } catch (e) { overrides = null; }
+            if (overrides === null) {
+                // Backward compatibility: earlier versions of this page stored the full merged
+                // roster under the 'roster' key. Treat it as a first cut at overrides.
+                try { const legacy = await storageGet('roster'); overrides = legacy ? JSON.parse(legacy) : {}; }
+                catch (e) { overrides = {}; }
+            }
             try { const a = await storageGet(todayKey); attendance = a ? JSON.parse(a) : {}; } catch (e) { attendance = {}; }
             try { const x = await storageGet('extraSeats'); extraSeats = x ? JSON.parse(x) : {}; } catch (e) { extraSeats = {}; }
+            try { const b = await storageGet('baselineRoster'); baselineRoster = b ? JSON.parse(b) : null; } catch (e) { baselineRoster = null; }
+            return overrides;
         }
-        async function saveRoster() { try { await storageSet('roster', JSON.stringify(roster)); } catch (e) { console.error(e); } }
+
+        // Merges a base roster with an overrides diff: null entries are tombstones (explicitly removed).
+        function applyOverrides(base, overrides) {
+            const out = { ...base };
+            Object.keys(overrides).forEach(id => {
+                const v = overrides[id];
+                if (v === null) delete out[id];
+                else out[id] = v;
+            });
+            return out;
+        }
+
+        // Computes what to persist: only what differs from the current CSV baseline, including
+        // explicit tombstones (null) for seats that used to have a CSV-sourced entry but no longer do.
+        function computeRosterOverrides() {
+            const out = {};
+            const allKeys = new Set([...Object.keys(roster), ...Object.keys(csvBaseRoster)]);
+            allKeys.forEach(id => {
+                const cur = roster[id] || null;
+                const base = csvBaseRoster[id] || null;
+                if (JSON.stringify(cur) !== JSON.stringify(base)) out[id] = cur;
+            });
+            return out;
+        }
+
+        async function saveRoster() { try { await storageSet('rosterOverrides', JSON.stringify(computeRosterOverrides())); } catch (e) { console.error(e); } }
         async function saveAttendance() { try { await storageSet(todayKey, JSON.stringify(attendance)); } catch (e) { console.error(e); } }
         async function saveExtraSeats() { try { await storageSet('extraSeats', JSON.stringify(extraSeats)); } catch (e) { console.error(e); } }
+        async function saveBaseline() { try { await storageSet('baselineRoster', JSON.stringify(baselineRoster)); } catch (e) { console.error(e); } }
 
         function escapeHtml(s) {
             return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1072,15 +1136,28 @@
             if (mode === 'attendance' && status) div.classList.add(status);
             const isDnc = !!(roster[id] && roster[id].doNotCall);
             if (isDnc) div.classList.add('dnc');
+            const deviates = highlightChanges && seatDeviatesFromBaseline(id);
+            if (deviates) div.classList.add('shifted');
 
             const label = isExtra ? `${rowLabel}+${order}` : id;
             const name = getName(id);
             const firstName = name ? name.trim().split(/\s+/)[0] : '';
             const dotHtml = filled ? '' : `<span class="grp-dot" style="background:${GRP_COLORS[group]}"></span>`;
-            div.innerHTML = `${dotHtml}<span class="seat-name">${firstName ? escapeHtml(firstName) : '—'}</span><span class="seat-num mono-code">${label}</span>${isDnc ? '<span class="dnc-cross">✕</span>' : ''}`;
+            div.innerHTML = `${dotHtml}<span class="seat-name">${firstName ? escapeHtml(firstName) : '—'}</span><span class="seat-num mono-code">${label}</span>${isDnc ? '<span class="dnc-cross">✕</span>' : ''}${deviates ? '<span class="shift-badge">⇄</span>' : ''}`;
             div.addEventListener('click', () => onSeatClick(id));
             return div;
         }
+
+        // Whether this seat's current occupant differs from the frozen baseline snapshot
+        // (the "original seatmap" — either the first-ever loaded layout, or whatever was
+        // explicitly set via "Set Current as Baseline").
+        function seatDeviatesFromBaseline(id) {
+            if (!baselineRoster) return false;
+            const before = JSON.stringify(baselineRoster[id] || null);
+            const after = JSON.stringify(roster[id] || null);
+            return before !== after;
+        }
+
 
         function onSeatClick(id) {
             if (mode === 'attendance') {
@@ -1236,7 +1313,8 @@
             updateSearchBanner();
             updateLockUI();
             document.getElementById('mirrorBtn').classList.toggle('active', mirrored);
-            document.getElementById('printHeading').textContent = COLUMNS[activeCol].name + ' Block';
+            document.getElementById('highlightBtn').classList.toggle('active', highlightChanges);
+            document.getElementById('printHeading').textContent = COLUMNS[activeCol].name + ' — Seat Mapping';
         }
 
         document.getElementById('search').addEventListener('input', () => {
@@ -1274,6 +1352,7 @@
             document.getElementById('swapLRBtn').disabled = !editUnlocked;
             document.getElementById('shift8Btn').disabled = !editUnlocked;
             document.getElementById('shift7Btn').disabled = !editUnlocked;
+            document.getElementById('setBaselineBtn').disabled = !editUnlocked;
         }
 
         document.getElementById('clearAttendance').addEventListener('click', async () => {
@@ -1380,6 +1459,7 @@
             if (!confirm('Swap the Left and Right blocks in every row? Names, roll numbers and today\'s attendance will move seat-for-seat (e.g. A11 <-> A31). This cannot be undone automatically.')) return;
             swapLeftRightBlocks();
             await Promise.all([saveRoster(), saveAttendance(), saveExtraSeats()]);
+            enableHighlightChanges();
             refreshAll();
         });
 
@@ -1388,6 +1468,7 @@
             if (!confirm('Cyclically shift the 8-seat middle-block rows (A, C, E, G, I)? Row A\'s data moves to I, C moves to A, E moves to C, G moves to E, and I moves to G. This cannot be undone automatically.')) return;
             cyclicShiftMiddleRows(['A', 'C', 'E', 'G', 'I']);
             await Promise.all([saveRoster(), saveAttendance(), saveExtraSeats()]);
+            enableHighlightChanges();
             refreshAll();
         });
 
@@ -1396,6 +1477,30 @@
             if (!confirm('Cyclically shift the 7-seat middle-block rows (B, D, F, H)? Row B\'s data moves to H, D moves to B, F moves to D, and H moves to F. This cannot be undone automatically.')) return;
             cyclicShiftMiddleRows(['B', 'D', 'F', 'H']);
             await Promise.all([saveRoster(), saveAttendance(), saveExtraSeats()]);
+            enableHighlightChanges();
+            refreshAll();
+        });
+
+        function enableHighlightChanges() {
+            highlightChanges = true;
+            document.getElementById('highlightBtn').classList.add('active');
+        }
+
+        document.getElementById('highlightBtn').addEventListener('click', () => {
+            highlightChanges = !highlightChanges;
+            document.getElementById('highlightBtn').classList.toggle('active', highlightChanges);
+            renderGrid();
+        });
+
+        document.getElementById('setBaselineBtn').addEventListener('click', async () => {
+            if (!editUnlocked) return;
+            if (!confirm('Set the current seat assignments as the new baseline? This clears all "changed" highlights — future comparisons will start from this layout.')) return;
+            baselineRoster = JSON.parse(JSON.stringify(roster));
+            await saveBaseline();
+            if (highlightChanges) {
+                highlightChanges = false;
+                document.getElementById('highlightBtn').classList.remove('active');
+            }
             refreshAll();
         });
 
@@ -1780,10 +1885,19 @@
         });
 
         (async function init() {
-            await loadData();
-            const localRoster = roster;
+            const overrides = await loadData();
             const csvResult = await loadStaticRosterFromCsv();
-            roster = { ...csvResult.roster, ...localRoster };
+            csvBaseRoster = csvResult.roster;
+            roster = applyOverrides(csvBaseRoster, overrides);
+
+            if (!baselineRoster) {
+                // First time this browser has seen the seatmap (or the baseline was reset):
+                // snapshot the current layout as "the original seatmap" for future Highlight
+                // Changes comparisons. Persisted once, then frozen until explicitly reset.
+                baselineRoster = JSON.parse(JSON.stringify(roster));
+                await saveBaseline();
+            }
+
             refreshAll();
             showCsvLoadBanner(csvResult);
         })();
