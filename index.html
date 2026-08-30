@@ -449,6 +449,13 @@
             font-weight: 700;
         }
 
+        .seat.swap-selected {
+            outline: 3px solid var(--brass-soft);
+            outline-offset: 1px;
+            box-shadow: 0 0 0 4px rgba(228, 197, 94, 0.3);
+            z-index: 3;
+        }
+
         .seat.filled.grp-yellow {
             background: linear-gradient(180deg, var(--grp-yellow-light), var(--grp-yellow-light-dark));
             border-color: var(--grp-yellow-light-dark);
@@ -926,6 +933,7 @@
             <button class="btn" id="swapLRBtn">↔️ Swap Left/Right Block</button>
             <button class="btn" id="shift8Btn">🔁 Shift 8-seat Rows (A→I)</button>
             <button class="btn" id="shift7Btn">🔁 Shift 7-seat Rows (B→H)</button>
+            <button class="btn" id="swapSeatBtn">🔀 Swap Seats</button>
             <button class="btn" id="highlightBtn">🔍 Highlight Changes</button>
             <button class="btn" id="setBaselineBtn">📍 Set Current as Baseline</button>
             <button class="btn" id="clearAttendance">Reset Today's Attendance</button>
@@ -940,8 +948,11 @@
         </div>
 
         <div class="tabs" id="tabs"></div>
+        <div class="lock-banner" id="swapBanner" style="display:none;">🔀 Swap mode: click a seat, then click a second
+            seat to swap their students (and today's attendance). Click <b>Swap Seats</b> again to exit.</div>
         <div class="search-banner" id="searchBanner"></div>
         <div class="import-summary" id="importSummary"></div>
+        <div class="import-summary" id="swapSummary"></div>
         <div class="import-summary" id="csvLoadBanner"></div>
         <h2 id="printHeading" class="print-only"></h2>
 
@@ -1010,6 +1021,8 @@
         let csvBaseRoster = {};     // roster rows loaded fresh from students.csv this session ({} if no CSV)
         let baselineRoster = null; // frozen "original seatmap" snapshot compared against for Highlight Changes; persists once set
         let highlightChanges = false; // whether the Highlight Changes view is currently on (session-only)
+        let swapMode = false;       // whether "Swap Seats" click-to-select mode is active
+        let swapFirstId = null;     // first seat picked while in swap mode
 
         function buildRowSeatIds(range) {
             const ids = [];
@@ -1138,6 +1151,7 @@
             if (isDnc) div.classList.add('dnc');
             const deviates = highlightChanges && seatDeviatesFromBaseline(id);
             if (deviates) div.classList.add('shifted');
+            if (swapMode && id === swapFirstId) div.classList.add('swap-selected');
 
             const label = isExtra ? `${rowLabel}+${order}` : id;
             const name = getName(id);
@@ -1170,7 +1184,47 @@
                 updateSearchBanner();
                 return;
             }
+            if (swapMode) {
+                handleSwapClick(id);
+                return;
+            }
             openSeatModal(id);
+        }
+
+        async function handleSwapClick(id) {
+            if (!swapFirstId) {
+                swapFirstId = id;
+                renderGrid();
+                return;
+            }
+            if (swapFirstId === id) {
+                swapFirstId = null;
+                renderGrid();
+                return;
+            }
+            const idA = swapFirstId, idB = id;
+            const entryA = roster[idA], entryB = roster[idB];
+            const attA = attendance[idA], attB = attendance[idB];
+
+            if (entryB) roster[idA] = entryB; else delete roster[idA];
+            if (entryA) roster[idB] = entryA; else delete roster[idB];
+            if (attB) attendance[idA] = attB; else delete attendance[idA];
+            if (attA) attendance[idB] = attA; else delete attendance[idB];
+
+            await Promise.all([saveRoster(), saveAttendance()]);
+            swapFirstId = null;
+            enableHighlightChanges();
+            refreshAll();
+            showSwapSummary(idA, idB, entryA, entryB);
+        }
+
+        function showSwapSummary(idA, idB, entryA, entryB) {
+            const box = document.getElementById('swapSummary');
+            const nameA = entryA && entryA.name ? escapeHtml(entryA.name) : '<span class="empty">empty seat</span>';
+            const nameB = entryB && entryB.name ? escapeHtml(entryB.name) : '<span class="empty">empty seat</span>';
+            box.innerHTML = `<span class="close-x" id="swapSummaryClose">✕</span><div><b>Swapped.</b> ${nameA} (${idA}) ↔ ${nameB} (${idB})</div>`;
+            box.style.display = 'block';
+            document.getElementById('swapSummaryClose').addEventListener('click', () => { box.style.display = 'none'; });
         }
 
         function addSeatBtn(rowLabel, colKey) {
@@ -1314,7 +1368,7 @@
             updateLockUI();
             document.getElementById('mirrorBtn').classList.toggle('active', mirrored);
             document.getElementById('highlightBtn').classList.toggle('active', highlightChanges);
-            document.getElementById('printHeading').textContent = COLUMNS[activeCol].name + ' — Seat Mapping';
+            document.getElementById('printHeading').textContent = COLUMNS[activeCol].name + ' — Block';
         }
 
         document.getElementById('search').addEventListener('input', () => {
@@ -1353,6 +1407,13 @@
             document.getElementById('shift8Btn').disabled = !editUnlocked;
             document.getElementById('shift7Btn').disabled = !editUnlocked;
             document.getElementById('setBaselineBtn').disabled = !editUnlocked;
+            document.getElementById('swapSeatBtn').disabled = !editUnlocked;
+            if (!editUnlocked && swapMode) {
+                swapMode = false;
+                swapFirstId = null;
+                document.getElementById('swapSeatBtn').classList.remove('active');
+                document.getElementById('swapBanner').style.display = 'none';
+            }
         }
 
         document.getElementById('clearAttendance').addEventListener('click', async () => {
@@ -1485,6 +1546,16 @@
             highlightChanges = true;
             document.getElementById('highlightBtn').classList.add('active');
         }
+
+        document.getElementById('swapSeatBtn').addEventListener('click', () => {
+            if (!editUnlocked) return;
+            swapMode = !swapMode;
+            swapFirstId = null;
+            document.getElementById('swapSeatBtn').classList.toggle('active', swapMode);
+            document.getElementById('swapBanner').style.display = swapMode ? 'block' : 'none';
+            if (!swapMode) document.getElementById('swapSummary').style.display = 'none';
+            renderGrid();
+        });
 
         document.getElementById('highlightBtn').addEventListener('click', () => {
             highlightChanges = !highlightChanges;
