@@ -456,6 +456,28 @@
             z-index: 3;
         }
 
+        .seat.quiz-target {
+            outline: 3px solid #A78BFA;
+            outline-offset: 2px;
+            animation: quizPulse 1s ease-in-out infinite alternate;
+            z-index: 4;
+        }
+
+        @keyframes quizPulse {
+            from {
+                box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.65);
+            }
+
+            to {
+                box-shadow: 0 0 0 10px rgba(167, 139, 250, 0);
+            }
+        }
+
+        .seat-name.quiz-hidden {
+            opacity: 0.55;
+            letter-spacing: 0.15em;
+        }
+
         .seat.filled.grp-yellow {
             background: linear-gradient(180deg, var(--grp-yellow-light), var(--grp-yellow-light-dark));
             border-color: var(--grp-yellow-light-dark);
@@ -921,20 +943,22 @@
             <input type="text" id="search" placeholder="Search name or roll no…" autocomplete="off">
             <button class="btn" id="modeRoster">📋 Roster Mode</button>
             <button class="btn" id="modeAttendance">✅ Attendance Mode</button>
+            <button class="btn" id="modeQuiz" title="Shortcut: Q">🧠 Memory Mode</button>
             <button class="btn lock" id="lockToggle">🔒 Editing Locked</button>
-            <button class="btn active" id="randomPickBtn">🎲 Surprise</button>
+            <button class="btn active" id="randomPickBtn" title="Shortcut: S">🎲 Surprise</button>
         </div>
         <div class="controls">
             <button class="btn" id="importBtn">⬆️ Import CSV</button>
             <input type="file" id="csvFile" accept=".csv,text/csv" style="display:none">
             <button class="btn" id="exportBtn">⬇️ Export JSON</button>
-            <button class="btn" id="mirrorBtn">🔄 Mirror Layout</button>
+            <button class="btn" id="mirrorBtn" title="Shortcut: M">🔄 Mirror Layout</button>
             <button class="btn" id="printBtn">🖨️ Print</button>
             <button class="btn" id="swapLRBtn">↔️ Swap Left/Right Block</button>
             <button class="btn" id="shift8Btn">🔁 Shift 8-seat Rows (A→I)</button>
             <button class="btn" id="shift7Btn">🔁 Shift 7-seat Rows (B→H)</button>
             <button class="btn" id="swapSeatBtn">🔀 Swap Seats</button>
-            <button class="btn" id="highlightBtn">🔍 Highlight Changes</button>
+            <button class="btn" id="guessSeatBtn" title="Shortcut: G">🎯 Guess This Seat</button>
+            <button class="btn" id="highlightBtn" title="Shortcut: H">🔍 Highlight Changes</button>
             <button class="btn" id="setBaselineBtn">📍 Set Current as Baseline</button>
             <button class="btn" id="clearAttendance">Reset Today's Attendance</button>
             <button class="btn danger" id="clearRoster">Clear All Names</button>
@@ -950,9 +974,12 @@
         <div class="tabs" id="tabs"></div>
         <div class="lock-banner" id="swapBanner" style="display:none;">🔀 Swap mode: click a seat, then click a second
             seat to swap their students (and today's attendance). Click <b>Swap Seats</b> again to exit.</div>
+        <div class="lock-banner" id="quizBanner" style="display:none;">🧠 Quiz mode: names are hidden. Click any seat
+            to reveal (or re-hide) that student's name. Click <b>Memory Mode</b> again to exit.</div>
         <div class="search-banner" id="searchBanner"></div>
         <div class="import-summary" id="importSummary"></div>
         <div class="import-summary" id="swapSummary"></div>
+        <div class="import-summary" id="quizSummary"></div>
         <div class="import-summary" id="csvLoadBanner"></div>
         <h2 id="printHeading" class="print-only"></h2>
 
@@ -1023,6 +1050,8 @@
         let highlightChanges = false; // whether the Highlight Changes view is currently on (session-only)
         let swapMode = false;       // whether "Swap Seats" click-to-select mode is active
         let swapFirstId = null;     // first seat picked while in swap mode
+        let quizRevealed = new Set(); // seat ids whose names are currently revealed while in quiz mode
+        let quizTargetId = null;      // the seat currently highlighted for "Guess This Seat"
 
         function buildRowSeatIds(range) {
             const ids = [];
@@ -1152,12 +1181,17 @@
             const deviates = highlightChanges && seatDeviatesFromBaseline(id);
             if (deviates) div.classList.add('shifted');
             if (swapMode && id === swapFirstId) div.classList.add('swap-selected');
+            if (mode === 'quiz' && id === quizTargetId) div.classList.add('quiz-target');
 
             const label = isExtra ? `${rowLabel}+${order}` : id;
             const name = getName(id);
             const firstName = name ? name.trim().split(/\s+/)[0] : '';
+            const quizHidden = mode === 'quiz' && filled && !quizRevealed.has(id);
+            const nameHtml = quizHidden
+                ? '<span class="seat-name quiz-hidden">•••</span>'
+                : `<span class="seat-name">${firstName ? escapeHtml(firstName) : '—'}</span>`;
             const dotHtml = filled ? '' : `<span class="grp-dot" style="background:${GRP_COLORS[group]}"></span>`;
-            div.innerHTML = `${dotHtml}<span class="seat-name">${firstName ? escapeHtml(firstName) : '—'}</span><span class="seat-num mono-code">${label}</span>${isDnc ? '<span class="dnc-cross">✕</span>' : ''}${deviates ? '<span class="shift-badge">⇄</span>' : ''}`;
+            div.innerHTML = `${dotHtml}${nameHtml}<span class="seat-num mono-code">${label}</span>${isDnc ? '<span class="dnc-cross">✕</span>' : ''}${deviates ? '<span class="shift-badge">⇄</span>' : ''}`;
             div.addEventListener('click', () => onSeatClick(id));
             return div;
         }
@@ -1186,6 +1220,12 @@
             }
             if (swapMode) {
                 handleSwapClick(id);
+                return;
+            }
+            if (mode === 'quiz') {
+                if (quizRevealed.has(id)) quizRevealed.delete(id);
+                else quizRevealed.add(id);
+                renderGrid();
                 return;
             }
             openSeatModal(id);
@@ -1382,10 +1422,17 @@
 
         document.getElementById('modeRoster').addEventListener('click', () => setMode('roster'));
         document.getElementById('modeAttendance').addEventListener('click', () => setMode('attendance'));
+        document.getElementById('modeQuiz').addEventListener('click', () => setMode(mode === 'quiz' ? 'roster' : 'quiz'));
         function setMode(m) {
             mode = m;
             document.getElementById('modeRoster').classList.toggle('active', m === 'roster');
             document.getElementById('modeAttendance').classList.toggle('active', m === 'attendance');
+            document.getElementById('modeQuiz').classList.toggle('active', m === 'quiz');
+            document.getElementById('quizBanner').style.display = m === 'quiz' ? 'block' : 'none';
+            if (m === 'quiz') {
+                quizRevealed = new Set();
+                quizTargetId = null;
+            }
             renderGrid();
             updateStats();
         }
@@ -1561,6 +1608,29 @@
             highlightChanges = !highlightChanges;
             document.getElementById('highlightBtn').classList.toggle('active', highlightChanges);
             renderGrid();
+        });
+
+        // --- Guess This Seat: quiz-mode helper that hides all names and spotlights one random
+        // eligible seat for the professor to try to name before revealing it. Reuses the same
+        // eligibility rule as "Surprise" (named seats only, do-not-call students excluded). ---
+        document.getElementById('guessSeatBtn').addEventListener('click', () => {
+            const eligible = getAllEligibleSeatIds();
+            const box = document.getElementById('quizSummary');
+            if (eligible.length === 0) {
+                box.innerHTML = `<span class="close-x" id="quizSummaryClose">✕</span><div><b>No eligible students.</b> There are no named seats to quiz on (or everyone eligible has "do not call" set).</div>`;
+                box.style.display = 'block';
+                document.getElementById('quizSummaryClose').addEventListener('click', () => { box.style.display = 'none'; });
+                return;
+            }
+            box.style.display = 'none';
+            const pick = eligible[Math.floor(Math.random() * eligible.length)];
+            if (mode !== 'quiz') setMode('quiz'); // also resets quizRevealed/quizTargetId
+            quizRevealed = new Set();
+            quizTargetId = pick.id;
+            activeCol = pick.colIndex;
+            refreshAll();
+            const targetEl = document.querySelector(`.seat[data-id="${pick.id}"]`);
+            if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
 
         document.getElementById('setBaselineBtn').addEventListener('click', async () => {
@@ -1772,8 +1842,27 @@
             return eligible;
         }
 
+        // Same eligibility rule as getAllEligibleSeatIds, but scoped to a single block/column —
+        // used by "Surprise" so it only picks from whichever tab is currently open.
+        function getEligibleSeatIdsForColumn(colIndex) {
+            const col = COLUMNS[colIndex];
+            const eligible = [];
+            ROWS.forEach(row => {
+                buildRowSeatIds(row[col.key]).forEach(num => {
+                    const id = row.label + num;
+                    const entry = roster[id];
+                    if (entry && entry.name && !entry.doNotCall) eligible.push({ id, colIndex });
+                });
+                extraSeatsForRowCol(row.label, col.key).forEach(exId => {
+                    const entry = roster[exId];
+                    if (entry && entry.name && !entry.doNotCall) eligible.push({ id: exId, colIndex });
+                });
+            });
+            return eligible;
+        }
+
         function openRandomPickModal() {
-            const eligible = getAllEligibleSeatIds();
+            const eligible = getEligibleSeatIdsForColumn(activeCol);
             const overlay = document.getElementById('modalOverlay');
             const card = document.getElementById('modalCard');
 
@@ -1784,7 +1873,7 @@
         <div class="modal-header-left"><h3>No eligible students</h3></div>
       </div>
       <div class="modal-body">
-        <p style="color:var(--chalk-dim);font-size:0.88rem;">There are no named seats available to pick from (or everyone eligible has "do not call" set).</p>
+        <p style="color:var(--chalk-dim);font-size:0.88rem;">There are no named seats in ${COLUMNS[activeCol].name} to pick from (or everyone eligible has "do not call" set). Switch blocks to try another.</p>
         <div class="modal-actions"><button class="btn active" id="modalCloseBtn2">Close</button></div>
       </div>`;
                 overlay.classList.add('open');
@@ -1952,7 +2041,22 @@
             if (e.target.id === 'modalOverlay') closeModal();
         });
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeModal();
+            if (e.key === 'Escape') { closeModal(); return; }
+
+            // Single-letter shortcuts below — ignore while typing in any text field/textarea,
+            // and ignore if a modifier key is held (so browser/OS shortcuts still work normally).
+            const activeTag = (document.activeElement && document.activeElement.tagName) || '';
+            const isTyping = activeTag === 'INPUT' || activeTag === 'TEXTAREA' ||
+                (document.activeElement && document.activeElement.isContentEditable);
+            if (isTyping || e.ctrlKey || e.metaKey || e.altKey) return;
+
+            switch (e.key.toLowerCase()) {
+                case 'q': document.getElementById('modeQuiz').click(); break;
+                case 'g': document.getElementById('guessSeatBtn').click(); break;
+                case 'm': document.getElementById('mirrorBtn').click(); break;
+                case 'h': document.getElementById('highlightBtn').click(); break;
+                case 's': document.getElementById('randomPickBtn').click(); break;
+            }
         });
 
         (async function init() {
