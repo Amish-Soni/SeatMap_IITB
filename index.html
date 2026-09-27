@@ -591,6 +591,94 @@
             text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
         }
 
+        .seat .marks-badge {
+            position: absolute;
+            bottom: 3px;
+            right: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.66rem;
+            font-weight: 700;
+            line-height: 1;
+            padding: 1px 4px;
+            border-radius: 4px;
+            background: rgba(12, 27, 48, 0.32);
+        }
+
+        .seat.no-marks-data {
+            background: repeating-linear-gradient(135deg, #24405e, #24405e 7px, #1b3252 7px, #1b3252 14px) !important;
+            border-color: #3a5a82 !important;
+        }
+
+        .seat.no-marks-data .seat-name,
+        .seat.no-marks-data .seat-num {
+            color: var(--chalk) !important;
+        }
+
+        /* --- MidSem ranges editor --- */
+        .ranges-head,
+        .ranges-row {
+            display: grid;
+            grid-template-columns: 60px 60px 46px 1fr 26px;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .ranges-head {
+            font-size: 0.66rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--chalk-dim);
+            padding: 0 2px 4px;
+        }
+
+        .ranges-table {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin: 4px 0 12px;
+        }
+
+        .ranges-row input[type=number],
+        .ranges-row input[type=text] {
+            width: 100%;
+            background: var(--bg-panel-alt);
+            border: 1px solid var(--empty-border);
+            border-radius: 6px;
+            color: var(--chalk);
+            padding: 6px 7px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem;
+        }
+
+        .ranges-row input[type=text] {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .ranges-row input[type=color] {
+            width: 46px;
+            height: 30px;
+            border: none;
+            border-radius: 6px;
+            background: none;
+            padding: 0;
+            cursor: pointer;
+        }
+
+        .ranges-row .rm-range {
+            background: none;
+            border: none;
+            color: var(--absent);
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .range-error {
+            color: var(--absent);
+            font-size: 0.78rem;
+            margin: -2px 0 10px;
+        }
+
         .modal-field .value.dnc-yes {
             color: var(--absent);
             font-weight: 700;
@@ -661,6 +749,15 @@
             box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55);
             position: relative;
             overflow: hidden;
+        }
+
+        .modal-card.wide {
+            max-width: 640px;
+        }
+
+        .modal-card.wide .modal-body {
+            max-height: 70vh;
+            overflow-y: auto;
         }
 
         .modal-header {
@@ -946,11 +1043,14 @@
             <button class="btn" id="modeQuiz" title="Shortcut: Q">🧠 Memory Mode</button>
             <button class="btn lock" id="lockToggle">🔒 Editing Locked</button>
             <button class="btn active" id="randomPickBtn" title="Shortcut: S">🎲 Surprise</button>
+            <button class="btn" id="colorModeToggle" title="Switch seat coloring between group and MidSem marks">🎨
+                Colors: Seat Groups</button>
         </div>
         <div class="controls">
             <button class="btn" id="importBtn">⬆️ Import CSV</button>
             <input type="file" id="csvFile" accept=".csv,text/csv" style="display:none">
             <button class="btn" id="exportBtn">⬇️ Export JSON</button>
+            <button class="btn" id="marksRangesBtn">🌡️ Edit MidSem Ranges</button>
             <button class="btn" id="mirrorBtn" title="Shortcut: M">🔄 Mirror Layout</button>
             <button class="btn" id="printBtn">🖨️ Print</button>
             <button class="btn" id="swapLRBtn">↔️ Swap Left/Right Block</button>
@@ -996,7 +1096,7 @@
                 <span><i class="swatch" style="background:var(--present)"></i>Present (attendance mode)</span>
                 <span><i class="swatch" style="background:var(--absent)"></i>Absent (attendance mode)</span>
             </div>
-            <div class="legend" style="margin-top:6px;">
+            <div class="legend" id="legendGroups" style="margin-top:6px;">
                 <span><i class="swatch" style="background:var(--grp-yellow);border-radius:50%"></i>Rows A/C/E/G/I — odd
                     seat</span>
                 <span><i class="swatch" style="background:var(--grp-red);border-radius:50%"></i>Rows A/C/E/G/I — even
@@ -1008,6 +1108,7 @@
                 <span><i class="swatch" style="background:var(--grp-black);border-radius:50%"></i>Extra / overflow
                     seat</span>
             </div>
+            <div class="legend" id="legendMarks" style="display:none;margin-top:6px;"></div>
         </div>
 
         <footer>Attendance is saved in this browser (this file, this device) and stay put across refreshes.
@@ -1067,6 +1168,87 @@
         }
 
         const GRP_COLORS = { yellow: 'var(--grp-yellow)', red: 'var(--grp-red)', blue: 'var(--grp-blue)', green: 'var(--grp-green)', black: 'var(--grp-black)' };
+
+        // --- MidSem marks heatmap (colorMode: 'group' = normal seat-group tinting, 'marks' = colored by MidSem score band) ---
+        const MIDSEM_MAX = 88;
+        let colorMode = 'group'; // 'group' | 'marks'
+        let markRanges = [];     // [{min, max, color, label}, ...] — editable, persisted
+
+        function defaultMarkRanges() {
+            return [
+                { min: 0, max: 30, color: '#C1453A', label: 'Needs support' },
+                { min: 31, max: 45, color: '#E0793C', label: 'Below average' },
+                { min: 46, max: 60, color: '#E8C547', label: 'Average' },
+                { min: 61, max: 75, color: '#8FBF5C', label: 'Good' },
+                { min: 76, max: MIDSEM_MAX, color: '#4C9A6A', label: 'Excellent' },
+            ];
+        }
+
+        function getMidSem(id) {
+            const v = roster[id] && roster[id].midSem;
+            return (v === undefined || v === null || v === '') ? '' : v;
+        }
+
+        // Header names (lowercased) recognised as the MidSem marks column in an imported CSV.
+        const MIDSEM_HEADER_ALIASES = ['midsem', 'mid sem', 'mid-sem', 'midsem marks', 'mid sem marks', 'midterm', 'mid term', 'marks'];
+        function parseMidSemCell(raw) {
+            if (raw === undefined || raw === null) return '';
+            const t = String(raw).trim();
+            if (t === '') return '';
+            const n = Number(t);
+            if (isNaN(n)) return '';
+            return Math.max(0, Math.min(MIDSEM_MAX, n));
+        }
+
+        // Finds the range a value falls in (inclusive). Values outside every configured
+        // range clamp to the nearest end, so a slightly out-of-range value still gets colored.
+        function getMarkRangeForValue(v) {
+            if (v === '' || v === null || typeof v === 'undefined' || isNaN(v) || !markRanges.length) return null;
+            const num = Number(v);
+            const sorted = [...markRanges].sort((a, b) => a.min - b.min);
+            for (const r of sorted) if (num >= r.min && num <= r.max) return r;
+            if (num < sorted[0].min) return sorted[0];
+            if (num > sorted[sorted.length - 1].max) return sorted[sorted.length - 1];
+            return null;
+        }
+
+        // Picks readable text color (light/dark chalk) against an arbitrary hex background.
+        function textColorForBg(hex) {
+            const c = (hex || '').replace('#', '');
+            if (c.length !== 6) return '#0c1b30';
+            const r = parseInt(c.substr(0, 2), 16), g = parseInt(c.substr(2, 2), 16), b = parseInt(c.substr(4, 2), 16);
+            const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            return lum > 0.58 ? '#0c1b30' : '#F5F1E6';
+        }
+
+        async function loadColorMode() {
+            try { const m = await storageGet('colorMode'); colorMode = (m === 'marks') ? 'marks' : 'group'; }
+            catch (e) { colorMode = 'group'; }
+        }
+        async function saveColorMode() { try { await storageSet('colorMode', colorMode); } catch (e) { console.error(e); } }
+
+        async function loadMarkRanges() {
+            try {
+                const r = await storageGet('markRanges');
+                markRanges = r ? JSON.parse(r) : null;
+            } catch (e) { markRanges = null; }
+            if (!Array.isArray(markRanges) || markRanges.length === 0) markRanges = defaultMarkRanges();
+        }
+        async function saveMarkRanges() { try { await storageSet('markRanges', JSON.stringify(markRanges)); } catch (e) { console.error(e); } }
+
+        function renderLegendVisibility() {
+            document.getElementById('legendGroups').style.display = colorMode === 'marks' ? 'none' : 'flex';
+            document.getElementById('legendMarks').style.display = colorMode === 'marks' ? 'flex' : 'none';
+            if (colorMode === 'marks') renderMarksLegend();
+        }
+
+        function renderMarksLegend() {
+            const box = document.getElementById('legendMarks');
+            const sorted = [...markRanges].sort((a, b) => a.min - b.min);
+            let html = sorted.map(r => `<span><i class="swatch" style="background:${r.color}"></i>${r.min}–${r.max}${r.label ? ' · ' + escapeHtml(r.label) : ''}</span>`).join('');
+            html += `<span><i class="swatch no-marks-data" style="width:12px;height:12px;border-radius:3px;"></i>No MidSem marks entered</span>`;
+            box.innerHTML = html;
+        }
 
         const ALL_VALID_SEATS = new Set();
         ROWS.forEach(row => {
@@ -1191,7 +1373,33 @@
                 ? '<span class="seat-name quiz-hidden">•••</span>'
                 : `<span class="seat-name">${firstName ? escapeHtml(firstName) : '—'}</span>`;
             const dotHtml = filled ? '' : `<span class="grp-dot" style="background:${GRP_COLORS[group]}"></span>`;
-            div.innerHTML = `${dotHtml}${nameHtml}<span class="seat-num mono-code">${label}</span>${isDnc ? '<span class="dnc-cross">✕</span>' : ''}${deviates ? '<span class="shift-badge">⇄</span>' : ''}`;
+
+            let marksBadgeHtml = '';
+            if (colorMode === 'marks' && filled && !quizHidden) {
+                const marks = getMidSem(id);
+                const range = getMarkRangeForValue(marks);
+                if (range) {
+                    const fg = textColorForBg(range.color);
+                    div.style.background = range.color;
+                    div.style.borderColor = range.color;
+                    marksBadgeHtml = `<span class="marks-badge" style="color:${fg}">${escapeHtml(String(marks))}/${MIDSEM_MAX}</span>`;
+                } else {
+                    div.classList.add('no-marks-data');
+                    marksBadgeHtml = `<span class="marks-badge">no marks</span>`;
+                }
+            }
+
+            div.innerHTML = `${dotHtml}${nameHtml}<span class="seat-num mono-code">${label}</span>${isDnc ? '<span class="dnc-cross">✕</span>' : ''}${deviates ? '<span class="shift-badge">⇄</span>' : ''}${marksBadgeHtml}`;
+            if (colorMode === 'marks' && filled) {
+                const range = getMarkRangeForValue(getMidSem(id));
+                if (range) {
+                    const fg = textColorForBg(range.color);
+                    const nameEl = div.querySelector('.seat-name');
+                    const numEl = div.querySelector('.seat-num');
+                    if (nameEl) nameEl.style.color = fg;
+                    if (numEl) numEl.style.color = fg;
+                }
+            }
             div.addEventListener('click', () => onSeatClick(id));
             return div;
         }
@@ -1409,7 +1617,16 @@
             document.getElementById('mirrorBtn').classList.toggle('active', mirrored);
             document.getElementById('highlightBtn').classList.toggle('active', highlightChanges);
             document.getElementById('printHeading').textContent = COLUMNS[activeCol].name + ' — Block';
+            renderLegendVisibility();
         }
+
+        document.getElementById('colorModeToggle').addEventListener('click', async () => {
+            colorMode = colorMode === 'marks' ? 'group' : 'marks';
+            document.getElementById('colorModeToggle').textContent = colorMode === 'marks' ? '🎨 Colors: MidSem Heatmap' : '🎨 Colors: Seat Groups';
+            document.getElementById('colorModeToggle').classList.toggle('active', colorMode === 'marks');
+            await saveColorMode();
+            refreshAll();
+        });
 
         document.getElementById('search').addEventListener('input', () => {
             const q = document.getElementById('search').value.trim().toLowerCase();
@@ -1647,7 +1864,8 @@
 
         // --- Shared static roster (students.csv, same folder as this file) ---
         // Columns supported (header names, case-insensitive): Name, Seat, Roll/RollNo/Roll No/Roll Number,
-        // DoNotCall/Do Not Call/DNC (yes/true/1 = do not call), Notes. Only Name + Seat are required.
+        // DoNotCall/Do Not Call/DNC (yes/true/1 = do not call), Notes, and MidSem/Mid Sem/Mid-Sem/Marks
+        // (a number out of 88 — used to color seats in MidSem Heatmap mode). Only Name + Seat are required.
         async function loadStaticRosterFromCsv() {
             try {
                 const resp = await fetch('./students.csv', { cache: 'no-store' });
@@ -1663,6 +1881,7 @@
                 const rollIdx = first.findIndex(c => ['roll', 'rollno', 'roll no', 'roll number', 'roll_no'].includes(c));
                 const dncIdx = first.findIndex(c => ['donotcall', 'do not call', 'dnc'].includes(c));
                 const notesIdx = first.indexOf('notes');
+                const midSemIdx = first.findIndex(c => MIDSEM_HEADER_ALIASES.includes(c));
 
                 const result = {};
                 let count = 0;
@@ -1676,7 +1895,8 @@
                     const notes = notesIdx !== -1 && cells[notesIdx] ? cells[notesIdx].trim() : '';
                     const dncRaw = dncIdx !== -1 && cells[dncIdx] ? cells[dncIdx].trim().toLowerCase() : '';
                     const doNotCall = ['yes', 'true', '1', 'y'].includes(dncRaw);
-                    result[seat] = { name, rollNo, notes, doNotCall };
+                    const midSem = midSemIdx !== -1 ? parseMidSemCell(cells[midSemIdx]) : '';
+                    result[seat] = { name, rollNo, notes, doNotCall, midSem };
                     count++;
                 }
                 return { ok: true, roster: result, count };
@@ -1732,17 +1952,19 @@
                 const rows = parseCSV(evt.target.result);
                 if (rows.length === 0) { showImportSummary('The file appears to be empty.', [], []); e.target.value = ''; return; }
 
-                let nameIdx = 0, seatIdx = 1, rollIdx = -1, startRow = 0;
+                let nameIdx = 0, seatIdx = 1, rollIdx = -1, midSemIdx = -1, startRow = 0;
                 const first = rows[0].map(c => c.toLowerCase());
                 const nameHeaderIdx = first.indexOf('name');
                 const seatHeaderIdx = first.indexOf('seat');
                 const rollHeaderIdx = first.findIndex(c => ['roll', 'rollno', 'roll no', 'roll number', 'roll_no'].includes(c));
+                const midSemHeaderIdx = first.findIndex(c => MIDSEM_HEADER_ALIASES.includes(c));
                 if (nameHeaderIdx !== -1 && seatHeaderIdx !== -1) {
                     nameIdx = nameHeaderIdx; seatIdx = seatHeaderIdx; startRow = 1;
                     if (rollHeaderIdx !== -1) rollIdx = rollHeaderIdx;
+                    if (midSemHeaderIdx !== -1) midSemIdx = midSemHeaderIdx;
                 }
 
-                let imported = 0, updated = 0;
+                let imported = 0, updated = 0, marksSet = 0;
                 const invalidSeats = [];
                 const blankRows = [];
 
@@ -1752,21 +1974,26 @@
                     const name = cells[nameIdx];
                     const seat = cells[seatIdx].toUpperCase().replace(/\s+/g, '');
                     const rollNo = rollIdx !== -1 && cells[rollIdx] ? cells[rollIdx].trim() : '';
+                    const midSemRaw = midSemIdx !== -1 ? cells[midSemIdx] : undefined;
                     if (!name || !seat) { blankRows.push(i + 1); continue; }
                     if (!ALL_VALID_SEATS.has(seat)) { invalidSeats.push(seat); continue; }
                     if (roster[seat] && roster[seat].name) updated++; else imported++;
+                    const parsedMidSem = parseMidSemCell(midSemRaw);
+                    if (parsedMidSem !== '') marksSet++;
                     roster[seat] = {
                         name,
                         rollNo: rollNo || (roster[seat] && roster[seat].rollNo) || '',
                         notes: (roster[seat] && roster[seat].notes) || '',
-                        doNotCall: !!(roster[seat] && roster[seat].doNotCall)
+                        doNotCall: !!(roster[seat] && roster[seat].doNotCall),
+                        // Preserve a previously-set MidSem score if this import didn't include one for this seat.
+                        midSem: parsedMidSem !== '' ? parsedMidSem : ((roster[seat] && roster[seat].midSem) ?? '')
                     };
                 }
 
                 await saveRoster();
                 refreshAll();
                 showImportSummary(
-                    `Imported ${imported} new name${imported === 1 ? '' : 's'}${updated ? `, updated ${updated} existing seat${updated === 1 ? '' : 's'}` : ''}.`,
+                    `Imported ${imported} new name${imported === 1 ? '' : 's'}${updated ? `, updated ${updated} existing seat${updated === 1 ? '' : 's'}` : ''}.${midSemHeaderIdx !== -1 ? ` MidSem marks set for ${marksSet} seat${marksSet === 1 ? '' : 's'}.` : ''}`,
                     invalidSeats, blankRows
                 );
                 e.target.value = '';
@@ -1798,6 +2025,7 @@
                             rollNo: (roster[id] && roster[id].rollNo) || null,
                             notes: (roster[id] && roster[id].notes) || null,
                             doNotCall: !!(roster[id] && roster[id].doNotCall),
+                            midSem: getMidSem(id) === '' ? null : getMidSem(id),
                             attendance: attendance[id] || 'not marked'
                         });
                     });
@@ -1809,6 +2037,7 @@
                             rollNo: (roster[exId] && roster[exId].rollNo) || null,
                             notes: (roster[exId] && roster[exId].notes) || null,
                             doNotCall: !!(roster[exId] && roster[exId].doNotCall),
+                            midSem: getMidSem(exId) === '' ? null : getMidSem(exId),
                             attendance: attendance[exId] || 'not marked'
                         });
                     });
@@ -1909,6 +2138,12 @@
         <div class="modal-field"><label>Name</label><div class="value" style="text-transform:capitalize;font-size:1.15rem;font-weight:700;">${escapeHtml(entry.name)}</div></div>
         <div class="modal-field"><label>Roll No</label><div class="value ${entry.rollNo ? '' : 'empty'}">${entry.rollNo ? escapeHtml(entry.rollNo) : '<span class="empty">—</span>'}</div></div>
         <div class="modal-field"><label>Seat</label><div class="value mono-code">${seatLabel}</div></div>
+        ${(() => {
+                    const ms = getMidSem(id);
+                    if (ms === '') return '';
+                    const r = getMarkRangeForValue(ms);
+                    return `<div class="modal-field"><label>MidSem</label><div class="value"><span class="swatch" style="background:${r ? r.color : 'var(--empty-border)'};margin-right:6px;vertical-align:middle;"></span>${ms}/${MIDSEM_MAX}</div></div>`;
+                })()}
         <div class="modal-actions">
           <button class="btn" id="modalPickAgainBtn">🎲 Surprise Again</button>
           <button class="btn active" id="modalCloseBtn2">Close</button>
@@ -1940,7 +2175,7 @@
             const group = getGroupForId(id);
             const colName = COLUMNS[activeCol].name;
             const label = isExtra ? `${extraSeats[id].row}+${extraSeats[id].order} (extra seat)` : id;
-            const entry = roster[id] || { name: '', rollNo: '', notes: '' };
+            const entry = roster[id] || { name: '', rollNo: '', notes: '', midSem: '' };
             const overlay = document.getElementById('modalOverlay');
             const card = document.getElementById('modalCard');
 
@@ -1952,6 +2187,12 @@
             const dncViewHtml = entry.doNotCall
                 ? `<div class="modal-field"><label>Calling preference</label><div class="value dnc-yes">🚫 Shouldn't be called</div></div>`
                 : '';
+
+            const midSemVal = getMidSem(id);
+            const midSemRange = getMarkRangeForValue(midSemVal);
+            const midSemViewHtml = midSemVal !== ''
+                ? `<div class="value"><span class="swatch" style="background:${midSemRange ? midSemRange.color : 'var(--empty-border)'};margin-right:6px;vertical-align:middle;"></span>${midSemVal}/${MIDSEM_MAX}${midSemRange && midSemRange.label ? ' · ' + escapeHtml(midSemRange.label) : ''}</div>`
+                : '<div class="value empty">—</div>';
 
             if (!editUnlocked) {
                 card.innerHTML = `
@@ -1966,6 +2207,7 @@
       <div class="modal-body">
         <div class="modal-field"><label>Name</label><div class="value ${entry.name ? '' : 'empty'}" style="text-transform:capitalize">${valueOrEmpty(entry.name)}</div></div>
         <div class="modal-field"><label>Roll No</label><div class="value ${entry.rollNo ? '' : 'empty'}">${valueOrEmpty(entry.rollNo)}</div></div>
+        <div class="modal-field"><label>MidSem</label>${midSemViewHtml}</div>
         <div class="modal-field"><label>Notes</label><div class="value ${entry.notes ? '' : 'empty'}">${valueOrEmpty(entry.notes)}</div></div>
         ${dncViewHtml}
         <div class="modal-actions"><button class="btn active" id="modalCloseBtn2">Close</button></div>
@@ -1984,6 +2226,7 @@
       <div class="modal-body">
         <div class="modal-field"><label>Name</label><input type="text" id="fldName" maxlength="40" value="${entry.name.replace(/"/g, '&quot;')}" placeholder="Student name"></div>
         <div class="modal-field"><label>Roll No</label><input type="text" id="fldRoll" maxlength="30" value="${entry.rollNo.replace(/"/g, '&quot;')}" placeholder="e.g. 21B1234"></div>
+        <div class="modal-field"><label>MidSem (out of ${MIDSEM_MAX})</label><input type="number" id="fldMidSem" min="0" max="${MIDSEM_MAX}" step="1" value="${midSemVal}" placeholder="e.g. 62"></div>
         <div class="modal-field"><label>Notes</label><textarea id="fldNotes" maxlength="200" placeholder="Anything else worth remembering">${escapeHtml(entry.notes)}</textarea></div>
         <div class="modal-field">
           <label class="dnc-toggle"><input type="checkbox" id="fldDnc" ${entry.doNotCall ? 'checked' : ''}> 🚫 Prefers not to be called</label>
@@ -2012,7 +2255,13 @@
                     const rollNo = document.getElementById('fldRoll').value.trim();
                     const notes = document.getElementById('fldNotes').value.trim();
                     const doNotCall = document.getElementById('fldDnc').checked;
-                    if (name || rollNo || notes || doNotCall) roster[id] = { name, rollNo, notes, doNotCall };
+                    const midSemRaw = document.getElementById('fldMidSem').value.trim();
+                    let midSem = '';
+                    if (midSemRaw !== '') {
+                        const n = Number(midSemRaw);
+                        midSem = isNaN(n) ? '' : Math.max(0, Math.min(MIDSEM_MAX, n));
+                    }
+                    if (name || rollNo || notes || doNotCall || midSem !== '') roster[id] = { name, rollNo, notes, doNotCall, midSem };
                     else delete roster[id];
                     await saveRoster();
                     closeModal();
@@ -2036,7 +2285,96 @@
 
         function closeModal() {
             document.getElementById('modalOverlay').classList.remove('open');
+            document.getElementById('modalCard').classList.remove('wide');
         }
+
+        // --- MidSem ranges editor modal ---
+        function openMarksRangesModal() {
+            let working = JSON.parse(JSON.stringify(markRanges)).sort((a, b) => a.min - b.min);
+            const overlay = document.getElementById('modalOverlay');
+            const card = document.getElementById('modalCard');
+            card.classList.add('wide');
+
+            function rowHtml(r, idx) {
+                return `<div class="ranges-row" data-idx="${idx}">
+          <input type="number" class="rr-min" min="0" max="${MIDSEM_MAX}" value="${r.min}">
+          <input type="number" class="rr-max" min="0" max="${MIDSEM_MAX}" value="${r.max}">
+          <input type="color" class="rr-color" value="${r.color}">
+          <input type="text" class="rr-label" maxlength="24" placeholder="Label (optional)" value="${escapeHtml(r.label || '')}">
+          <button type="button" class="rm-range" title="Remove range">✕</button>
+        </div>`;
+            }
+
+            function renderBody() {
+                card.innerHTML = `
+      <div class="modal-header grp-black">
+        <span class="modal-close" id="modalCloseBtn">✕</span>
+        <div class="modal-header-left">
+          <h3>🌡️ MidSem Ranges</h3>
+          <div class="modal-sub">Marks out of ${MIDSEM_MAX} — each range is min to max, inclusive</div>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="ranges-head"><span>Min</span><span>Max</span><span>Color</span><span>Label</span><span></span></div>
+        <div class="ranges-table" id="rangesTable">${working.map(rowHtml).join('')}</div>
+        <div id="rangesError" class="range-error" style="display:none;"></div>
+        <div class="modal-actions" style="justify-content:flex-start;">
+          <button class="btn" id="addRangeBtn">➕ Add Range</button>
+          <button class="btn" id="resetRangesBtn">↺ Reset to Defaults</button>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" id="modalCancelBtn">Cancel</button>
+          <button class="btn active" id="modalSaveBtn">Save</button>
+        </div>
+      </div>`;
+
+                document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+                document.getElementById('modalCancelBtn').addEventListener('click', closeModal);
+
+                document.getElementById('addRangeBtn').addEventListener('click', () => {
+                    const lastMax = working.length ? working[working.length - 1].max : -1;
+                    working.push({ min: Math.min(lastMax + 1, MIDSEM_MAX), max: MIDSEM_MAX, color: '#5390D9', label: '' });
+                    renderBody();
+                });
+                document.getElementById('resetRangesBtn').addEventListener('click', () => {
+                    working = defaultMarkRanges();
+                    renderBody();
+                });
+
+                document.querySelectorAll('#rangesTable .rm-range').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const idx = Number(btn.closest('.ranges-row').dataset.idx);
+                        working.splice(idx, 1);
+                        renderBody();
+                    });
+                });
+
+                document.getElementById('modalSaveBtn').addEventListener('click', async () => {
+                    const rows = document.querySelectorAll('#rangesTable .ranges-row');
+                    const next = [];
+                    let err = '';
+                    rows.forEach(row => {
+                        const min = Number(row.querySelector('.rr-min').value);
+                        const max = Number(row.querySelector('.rr-max').value);
+                        const color = row.querySelector('.rr-color').value;
+                        const label = row.querySelector('.rr-label').value.trim();
+                        if (isNaN(min) || isNaN(max) || min > max) err = 'Each range needs Min ≤ Max.';
+                        next.push({ min: Math.max(0, min), max: Math.min(MIDSEM_MAX, max), color, label });
+                    });
+                    if (next.length === 0) err = 'Add at least one range.';
+                    const errBox = document.getElementById('rangesError');
+                    if (err) { errBox.textContent = err; errBox.style.display = 'block'; return; }
+                    markRanges = next.sort((a, b) => a.min - b.min);
+                    await saveMarkRanges();
+                    closeModal();
+                    refreshAll();
+                });
+            }
+
+            renderBody();
+            overlay.classList.add('open');
+        }
+        document.getElementById('marksRangesBtn').addEventListener('click', () => openMarksRangesModal());
         document.getElementById('modalOverlay').addEventListener('click', (e) => {
             if (e.target.id === 'modalOverlay') closeModal();
         });
@@ -2064,6 +2402,10 @@
             const csvResult = await loadStaticRosterFromCsv();
             csvBaseRoster = csvResult.roster;
             roster = applyOverrides(csvBaseRoster, overrides);
+            await loadColorMode();
+            await loadMarkRanges();
+            document.getElementById('colorModeToggle').textContent = colorMode === 'marks' ? '🎨 Colors: MidSem Heatmap' : '🎨 Colors: Seat Groups';
+            document.getElementById('colorModeToggle').classList.toggle('active', colorMode === 'marks');
 
             if (!baselineRoster) {
                 // First time this browser has seen the seatmap (or the baseline was reset):
