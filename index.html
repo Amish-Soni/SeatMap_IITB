@@ -1884,6 +1884,7 @@
                 const midSemIdx = first.findIndex(c => MIDSEM_HEADER_ALIASES.includes(c));
 
                 const result = {};
+                const seatRows = {}; // seat -> [{row, name}], to flag duplicate seat mappings within this CSV
                 let count = 0;
                 for (let i = 1; i < rows.length; i++) {
                     const cells = rows[i];
@@ -1896,25 +1897,44 @@
                     const dncRaw = dncIdx !== -1 && cells[dncIdx] ? cells[dncIdx].trim().toLowerCase() : '';
                     const doNotCall = ['yes', 'true', '1', 'y'].includes(dncRaw);
                     const midSem = midSemIdx !== -1 ? parseMidSemCell(cells[midSemIdx]) : '';
+                    if (!seatRows[seat]) seatRows[seat] = [];
+                    seatRows[seat].push({ row: i + 1, name });
                     result[seat] = { name, rollNo, notes, doNotCall, midSem };
                     count++;
                 }
-                return { ok: true, roster: result, count };
+                const duplicates = Object.keys(seatRows)
+                    .filter(s => seatRows[s].length > 1)
+                    .map(s => ({ seat: s, entries: seatRows[s] }));
+                return { ok: true, roster: result, count, duplicates };
             } catch (e) {
                 return { ok: false, reason: 'fetch-failed', roster: {} };
             }
         }
 
         function showCsvLoadBanner(result) {
-            if (result.ok) return;
             const box = document.getElementById('csvLoadBanner');
-            if (result.reason === 'fetch-failed' || result.reason === 'not-found') {
-                box.innerHTML = `<span class="close-x" id="csvBannerClose">✕</span><div><b>No shared roster loaded.</b> Couldn't load students.csv from this folder (it may be missing, or the page was opened directly as a file rather than through a web server — try running a local server, e.g. <span class="mono-code">python -m http.server</span>, and open the page via http://localhost). Using locally saved data only.</div>`;
-            } else {
-                box.innerHTML = `<span class="close-x" id="csvBannerClose">✕</span><div><b>students.csv found but not used.</b> Make sure it has a header row with at least <span class="mono-code">Name</span> and <span class="mono-code">Seat</span> columns.</div>`;
+            if (!result.ok) {
+                if (result.reason === 'fetch-failed' || result.reason === 'not-found') {
+                    box.innerHTML = `<span class="close-x" id="csvBannerClose">✕</span><div><b>No shared roster loaded.</b> Couldn't load students.csv from this folder (it may be missing, or the page was opened directly as a file rather than through a web server — try running a local server, e.g. <span class="mono-code">python -m http.server</span>, and open the page via http://localhost). Using locally saved data only.</div>`;
+                } else {
+                    box.innerHTML = `<span class="close-x" id="csvBannerClose">✕</span><div><b>students.csv found but not used.</b> Make sure it has a header row with at least <span class="mono-code">Name</span> and <span class="mono-code">Seat</span> columns.</div>`;
+                }
+                box.style.display = 'block';
+                document.getElementById('csvBannerClose').addEventListener('click', () => { box.style.display = 'none'; });
+                return;
             }
-            box.style.display = 'block';
-            document.getElementById('csvBannerClose').addEventListener('click', () => { box.style.display = 'none'; });
+            // Loaded fine — but still flag duplicate seat mappings within students.csv itself,
+            // since two students accidentally sharing a seat number is easy to miss otherwise.
+            if (result.duplicates && result.duplicates.length) {
+                const list = result.duplicates
+                    .map(d => `<b>${d.seat}</b>: ${d.entries.map(e => `${escapeHtml(e.name)} (line ${e.row})`).join(', ')}`)
+                    .join('<br>');
+                box.innerHTML = `<span class="close-x" id="csvBannerClose">✕</span><div><b>⚠️ Duplicate seat mapping${result.duplicates.length === 1 ? '' : 's'} in students.csv.</b> More than one student is assigned to the same seat — only the last row for each seat below was kept. Please fix the CSV.<div class="warn-list">${list}</div></div>`;
+                box.style.display = 'block';
+                document.getElementById('csvBannerClose').addEventListener('click', () => { box.style.display = 'none'; });
+            } else {
+                box.style.display = 'none';
+            }
         }
 
         // --- CSV import ---
@@ -1967,6 +1987,7 @@
                 let imported = 0, updated = 0, marksSet = 0;
                 const invalidSeats = [];
                 const blankRows = [];
+                const seatRows = {}; // seat -> [{row, name}], to flag duplicate seat mappings within this CSV
 
                 for (let i = startRow; i < rows.length; i++) {
                     const cells = rows[i];
@@ -1977,6 +1998,8 @@
                     const midSemRaw = midSemIdx !== -1 ? cells[midSemIdx] : undefined;
                     if (!name || !seat) { blankRows.push(i + 1); continue; }
                     if (!ALL_VALID_SEATS.has(seat)) { invalidSeats.push(seat); continue; }
+                    if (!seatRows[seat]) seatRows[seat] = [];
+                    seatRows[seat].push({ row: i + 1, name });
                     if (roster[seat] && roster[seat].name) updated++; else imported++;
                     const parsedMidSem = parseMidSemCell(midSemRaw);
                     if (parsedMidSem !== '') marksSet++;
@@ -1990,20 +2013,30 @@
                     };
                 }
 
+                const duplicateSeats = Object.keys(seatRows)
+                    .filter(s => seatRows[s].length > 1)
+                    .map(s => ({ seat: s, entries: seatRows[s] }));
+
                 await saveRoster();
                 refreshAll();
                 showImportSummary(
                     `Imported ${imported} new name${imported === 1 ? '' : 's'}${updated ? `, updated ${updated} existing seat${updated === 1 ? '' : 's'}` : ''}.${midSemHeaderIdx !== -1 ? ` MidSem marks set for ${marksSet} seat${marksSet === 1 ? '' : 's'}.` : ''}`,
-                    invalidSeats, blankRows
+                    invalidSeats, blankRows, duplicateSeats
                 );
                 e.target.value = '';
             };
             reader.readAsText(file);
         });
 
-        function showImportSummary(mainMsg, invalidSeats, blankRows) {
+        function showImportSummary(mainMsg, invalidSeats, blankRows, duplicateSeats) {
             const box = document.getElementById('importSummary');
             let html = `<span class="close-x" id="importClose">✕</span><div><b>Import complete.</b> ${mainMsg}</div>`;
+            if (duplicateSeats && duplicateSeats.length) {
+                const list = duplicateSeats
+                    .map(d => `<b>${d.seat}</b>: ${d.entries.map(e => `${escapeHtml(e.name)} (line ${e.row})`).join(', ')}`)
+                    .join('<br>');
+                html += `<div class="warn-list">⚠️ ${duplicateSeats.length} seat${duplicateSeats.length === 1 ? '' : 's'} had more than one student mapped to ${duplicateSeats.length === 1 ? 'it' : 'them'} in this file — only the last row for each was kept:<br>${list}</div>`;
+            }
             if (invalidSeats.length) html += `<div class="warn-list">Seat number${invalidSeats.length === 1 ? '' : 's'} not found in the layout: ${invalidSeats.join(', ')}</div>`;
             if (blankRows.length) html += `<div class="warn-list">Skipped incomplete row${blankRows.length === 1 ? '' : 's'} (missing name or seat): line ${blankRows.join(', ')}</div>`;
             box.innerHTML = html;
